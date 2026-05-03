@@ -449,6 +449,13 @@ JWT becomes valid via `NbAuthService.onTokenChange()`, and exposes
   seeded sources (`analytics-warehouse`, `metrics-stream`, etc.) remain
   intentionally credential-less — they'll come alive when real
   connectors land for their types.
+- The Configuration → Data Sources card has an **Add source** button +
+  click-to-edit on each row (modal at the top of `system.component.html`,
+  same pattern as User Groups / Account user modals). Password handling
+  follows the API contract: empty on edit = "leave alone", non-empty =
+  update, explicit "Clear stored password" sends `password: ''` to wipe
+  the credential. `editingSource.hasCredentials` drives the
+  "credentials configured" hint so the UI never round-trips the secret.
 
 ### License module (split out of SystemConfig)
 
@@ -493,4 +500,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03 — Phase 5b (Postgres connector + Test/Sync) shipped.*
+*Last updated: 2026-05-03 — Phase 5b + Source create/edit modal shipped.*
