@@ -151,4 +151,5 @@ the column. See lesson #9 in the root CLAUDE.md.
 - [x] `SystemConfigStore` (BehaviorSubject + auth-gated fetch) — Phase 4
 - [x] `formatInZone` helper (tz + dateFormat aware timestamps) — Phase 4
 - [x] `HealthApiService` (`/health/check` public, `/health/metrics` auth-gated) — Phase H
+- [x] `LicenseApiService` (read-only — install-time data; written by backend CLI)
 - [ ] `SourcesApiService`, `AssetsApiService` — Phase 5

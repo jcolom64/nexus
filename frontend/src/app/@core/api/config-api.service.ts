@@ -43,11 +43,7 @@ export interface ApiSystemConfig {
   maxConcurrentJobs: number;
   workerPoolSize: number;
 
-  licenseKey: string;
-  plan: string;
-  seatsUsed: number;
-  seatsTotal: number;
-  licenseExpires: string;
+  // License is its own resource — see LicenseApiService / ApiLicense.
 
   updatedAt: string;
 }

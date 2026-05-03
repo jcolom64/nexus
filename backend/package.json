@@ -15,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "license:apply": "ts-node scripts/apply-license.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

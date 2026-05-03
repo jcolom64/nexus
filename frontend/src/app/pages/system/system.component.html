@@ -1349,15 +1349,21 @@
                     <header>
                       <nb-icon icon="award-outline"></nb-icon>
                       <h6>Licensing</h6>
-                      <span class="strength-pill" [attr.data-strength]="systemConfig.plan === 'enterprise' ? 'strong' : (systemConfig.plan === 'professional' ? 'moderate' : 'weak')">{{ systemConfig.plan }}</span>
+                      <span *ngIf="license" class="strength-pill" [attr.data-strength]="license.plan === 'enterprise' ? 'strong' : (license.plan === 'professional' ? 'moderate' : 'weak')">{{ license.plan }}</span>
                     </header>
                     <div class="settings-body">
                       <div class="info-banner" role="note">
                         <nb-icon icon="info-outline"></nb-icon>
                         <div>
-                          Read-only. License is applied at install time; rotation and seat
-                          changes are handled out-of-band (CLI / account portal in a future phase).
+                          Read-only. License is applied at install time via
+                          <code>npm&nbsp;run&nbsp;license:apply</code>; rotation and seat
+                          changes are handled out-of-band.
                         </div>
+                      </div>
+
+                      <div *ngIf="licenseError" class="warning-banner">
+                        <nb-icon icon="alert-triangle-outline"></nb-icon>
+                        <span>{{ licenseError }}</span>
                       </div>
 
                       <div class="setting-row">
@@ -1366,7 +1372,7 @@
                           <span class="label-help">Last segment shown.</span>
                         </div>
                         <div class="setting-control">
-                          <code class="license-key">{{ maskedLicenseKey() }}</code>
+                          <code class="license-key">{{ maskedLicenseKey() || '—' }}</code>
                         </div>
                       </div>
 
@@ -1375,14 +1381,16 @@
                           <span class="label-title">Plan</span>
                         </div>
                         <div class="setting-control">
-                          <span class="role-pill">{{ planLabel(systemConfig.plan) }}</span>
+                          <span class="role-pill">{{ license ? planLabel(license.plan) : '—' }}</span>
                         </div>
                       </div>
 
                       <div class="setting-row stacked">
                         <div class="setting-label">
                           <span class="label-title">Seat usage</span>
-                          <span class="label-help">{{ apiUsers.length }} of {{ systemConfig.seatsTotal }} seats in use.</span>
+                          <span class="label-help">
+                            {{ apiUsers.length }} of {{ license?.seatsTotal ?? '—' }} seats in use.
+                          </span>
                         </div>
                         <div class="setting-control">
                           <nb-progress-bar [value]="seatsPercent" [status]="seatsStatus" size="tiny"></nb-progress-bar>

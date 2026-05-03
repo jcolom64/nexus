@@ -15,6 +15,7 @@ import {
 } from '../../@core/api/audit-api.service';
 import { ApiSystemConfig } from '../../@core/api/config-api.service';
 import { ApiSecuritySettings, SecurityApiService } from '../../@core/api/security-api.service';
+import { ApiLicense, LicenseApiService } from '../../@core/api/license-api.service';
 import {
   ApiHealthComponent,
   ApiHealthMetrics,
@@ -150,12 +151,7 @@ interface SystemConfig {
   maxConcurrentJobs: number;
   workerPoolSize: number;
 
-  // Licensing
-  licenseKey: string;
-  plan: LicenseTier;
-  seatsUsed: number;
-  seatsTotal: number;
-  licenseExpires: string;
+  // License is its own resource — see `license` field on SystemComponent.
 }
 
 interface SecuritySettings {
@@ -226,11 +222,6 @@ export class SystemComponent implements OnInit {
     maxUploadMb: 100,
     maxConcurrentJobs: 16,
     workerPoolSize: 8,
-    licenseKey: 'NEXUS-7K4Q-XPLM-9WZH-22F8-A4MB-RT6Q',
-    plan: 'professional',
-    seatsUsed: 24,
-    seatsTotal: 50,
-    licenseExpires: '2027-02-14',
   };
 
   systemConfig: SystemConfig = JSON.parse(JSON.stringify(this.defaultSystemConfig));
@@ -310,11 +301,14 @@ export class SystemComponent implements OnInit {
     const dbSize = this.healthMetrics
       ? this.formatBytes(this.healthMetrics.databaseSizeBytes)
       : '—';
+    const seatsValue = this.license
+      ? `${this.apiUsers.length} of ${this.license.seatsTotal}`
+      : '—';
     return [
       { label: 'Application',   value: this.systemConfig.appNameOverride || 'Nexus' },
-      { label: 'Plan',          value: this.planLabel(this.systemConfig.plan) },
+      { label: 'Plan',          value: this.license ? this.planLabel(this.license.plan) : '—' },
       { label: 'License key',   value: this.maskedLicenseKey() || '—' },
-      { label: 'Seats in use',  value: `${this.apiUsers.length} of ${this.systemConfig.seatsTotal}` },
+      { label: 'Seats in use',  value: seatsValue },
       { label: 'Expires',       value: this.licenseExpiresDisplay() },
       { label: 'Locale',        value: this.systemConfig.defaultLocale },
       { label: 'Timezone',      value: this.systemConfig.defaultTimezone },
@@ -341,6 +335,12 @@ export class SystemComponent implements OnInit {
   // App % is always accurate; system % may overstate available memory inside
   // a container — surfaced in a footnote on the page.
   healthMetrics: ApiHealthMetrics | null = null;
+
+  // Install-time license, fetched once from /api/license. Null until the
+  // request lands. Read-only here — the only writer is the backend's
+  // `license:apply` CLI.
+  license: ApiLicense | null = null;
+  licenseError: string | null = null;
 
   users: AccountUser[] = [
     { id: '001', name: 'John Doe',     email: 'john.doe@nexus.com',     role: 'Administrator', state: 'active',    lastLogin: '2026-04-30 14:30' },
@@ -636,6 +636,7 @@ export class SystemComponent implements OnInit {
     private securityApi: SecurityApiService,
     private settingsService: SettingsService,
     private healthApi: HealthApiService,
+    private licenseApi: LicenseApiService,
   ) {}
 
   ngOnInit(): void {
@@ -645,6 +646,18 @@ export class SystemComponent implements OnInit {
     this.loadApiUsers();
     this.loadHealthCheck();
     this.loadRecentEvents();
+    this.loadLicense();
+  }
+
+  loadLicense(): void {
+    this.licenseError = null;
+    this.licenseApi.get().subscribe({
+      next: (l) => (this.license = l),
+      error: (err) => {
+        this.licenseError = err?.error?.message || err?.message || 'Failed to load license';
+        this.license = null;
+      },
+    });
   }
 
   loadApiGroupsAndAccounts(): void {
@@ -1106,11 +1119,6 @@ export class SystemComponent implements OnInit {
       maxUploadMb: c.maxUploadMb,
       maxConcurrentJobs: c.maxConcurrentJobs,
       workerPoolSize: c.workerPoolSize,
-      licenseKey: c.licenseKey,
-      plan: c.plan as LicenseTier,
-      seatsUsed: c.seatsUsed,
-      seatsTotal: c.seatsTotal,
-      licenseExpires: c.licenseExpires,
     };
   }
 
@@ -1170,7 +1178,7 @@ export class SystemComponent implements OnInit {
   }
 
   maskedLicenseKey(): string {
-    const key = this.systemConfig.licenseKey;
+    const key = this.license?.licenseKey ?? '';
     if (!key) return '';
     const segments = key.split('-');
     if (segments.length < 3) return key;
@@ -1183,7 +1191,7 @@ export class SystemComponent implements OnInit {
   // than blank. Stored values are ISO `YYYY-MM-DD`, formatted in the saved
   // timezone + date pattern.
   licenseExpiresDisplay(): string {
-    const v = this.systemConfig.licenseExpires;
+    const v = this.license?.licenseExpires ?? '';
     if (!v) return 'Never expires';
     const tz = this.systemConfig.defaultTimezone || 'UTC';
     const fmt = this.systemConfig.dateFormat || 'YYYY-MM-DD';
@@ -1195,10 +1203,10 @@ export class SystemComponent implements OnInit {
     return plan.charAt(0).toUpperCase() + plan.slice(1);
   }
 
-  // Derived from the live user count rather than the stored `seatsUsed` field
-  // — that field is dead weight now that licensing is install-time data.
+  // Seats-in-use comes from the live user count; total comes from the
+  // license. License is install-time, users come and go independently.
   get seatsPercent(): number {
-    const total = this.systemConfig.seatsTotal || 1;
+    const total = this.license?.seatsTotal || 1;
     return Math.min(100, Math.round((this.apiUsers.length / total) * 100));
   }
 

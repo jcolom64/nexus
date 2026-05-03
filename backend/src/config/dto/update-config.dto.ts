@@ -60,10 +60,5 @@ export class UpdateSystemConfigDto {
   @IsOptional() @IsInt() @Min(1) @Max(1024) maxConcurrentJobs?: number;
   @IsOptional() @IsInt() @Min(1) @Max(256) workerPoolSize?: number;
 
-  // Licensing
-  @IsOptional() @IsString() @MaxLength(255) licenseKey?: string;
-  @IsOptional() @IsIn(['starter', 'professional', 'enterprise']) plan?: string;
-  @IsOptional() @IsInt() @Min(0) @Max(1_000_000) seatsUsed?: number;
-  @IsOptional() @IsInt() @Min(0) @Max(1_000_000) seatsTotal?: number;
-  @IsOptional() @IsString() @MaxLength(32) licenseExpires?: string;
+  // Licensing fields moved to GET /api/license — see LicenseModule.
 }

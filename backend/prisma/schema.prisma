@@ -170,18 +170,27 @@ model SystemConfig {
   maxConcurrentJobs        Int      @default(16)
   workerPoolSize           Int      @default(8)
 
-  // Licensing — applied at install time. Empty `licenseExpires` = never expires.
-  // Not editable from the System → Configuration UI; future install/CLI flow
-  // will write these fields and the page only displays them.
-  licenseKey               String   @default("NEXUS-DEV-LCNS-LOCAL-DEV-INST-2026")
-  plan                     String   @default("enterprise")
-  seatsUsed                Int      @default(0)
-  seatsTotal               Int      @default(50)
-  licenseExpires           String   @default("")
-
   updatedAt                DateTime @updatedAt
 
   @@map("system_config")
+}
+
+// Install-time license, stored as a singleton row. Written by an
+// out-of-band CLI (`npm --prefix backend run license:apply`); there is
+// intentionally no admin-facing PUT/PATCH on this resource. Empty
+// `licenseExpires` means "never expires". `seatsUsed` is derived from
+// the live user count and doesn't live here.
+model License {
+  id              String   @id @default("singleton")
+  licenseKey      String   @default("NEXUS-DEV-LCNS-LOCAL-DEV-INST-2026")
+  plan            String   @default("enterprise")
+  seatsTotal      Int      @default(50)
+  licenseExpires  String   @default("")
+  appliedAt       DateTime @default(now())
+  appliedBy       String?
+  notes           String?
+
+  @@map("licenses")
 }
 
 model SecuritySettings {

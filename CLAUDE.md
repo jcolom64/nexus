@@ -388,6 +388,31 @@ JWT becomes valid via `NbAuthService.onTokenChange()`, and exposes
   two `os.cpus()` snapshots ~100ms apart; same for `process.cpuUsage()`. The
   app vs system split is deliberate — see "App vs system metrics" below.
 
+### License module (split out of SystemConfig)
+
+License is install-time data — key, plan, seat cap, expiry — owned by the
+operator, not the tenant admin. It lives in its own `License` singleton
+table (`licenses`), separate from `SystemConfig`.
+
+- `GET /api/license` — **auth-gated** (leaks license details). Read-only.
+- **No PUT/PATCH endpoint by design.** Writes happen out-of-band:
+  ```bash
+  npm --prefix backend run license:apply -- \
+    --key NEXUS-XXXX-XXXX-XXXX --plan enterprise --seats 100 \
+    --expires 2027-12-31 --by jcolom@example.com
+  ```
+  `--expires` is optional (omit for perpetual). The CLI lives at
+  `backend/scripts/apply-license.ts`. Future work: validate a signed
+  license bundle instead of accepting raw flags.
+- `seatsUsed` is **not stored** — the UI derives in-use seats from the
+  live user count (`apiUsers.length`) instead. The previous orphaned
+  column was dropped in the split migration.
+
+Frontend reads via `LicenseApiService` and renders the Licensing card on
+System → Configuration plus the corresponding rows in System → Health
+"System Information". Read-only everywhere; the Configuration tab's
+banner explains how to rotate.
+
 The roadmap snapshot in [README.md](./README.md#roadmap-snapshot) is the
 source of truth for in-flight items — keep it updated.
 

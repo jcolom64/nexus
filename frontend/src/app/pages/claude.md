@@ -126,9 +126,13 @@ dashboard. Four blocks:
    container — note the footnote below the grid).
 
 3. **System Information card** — derived from `systemConfig` + `apiUsers`
-   + `healthMetrics` (the last for `databaseSizeBytes`). Surfaces the
-   tenant configuration as a snapshot: app name, plan, license,
-   seats-in-use, expiry, locale, timezone, date format, DB size.
+   + `healthMetrics` (the last for `databaseSizeBytes`) + `license`.
+   Surfaces the tenant configuration as a snapshot: app name (config),
+   plan / license key / seats-in-use / expiry (license), locale /
+   timezone / date format (config), DB size (health). License values
+   come from `GET /api/license` — install-time data, separate from
+   `/api/config`. Seats-in-use is `apiUsers.length`, never a stored
+   counter.
 
 4. **Recent Events card** — most recent N audit-log entries via
    `AuditApiService.query({ pageSize: N })`. Header has a `Last [N] events`
