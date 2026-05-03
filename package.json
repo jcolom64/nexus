@@ -1,0 +1,28 @@
+{
+  "name": "nexus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexus monorepo — Angular frontend (frontend/) + NestJS backend (backend/)",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green --kill-others-on-fail \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:frontend": "npm --prefix frontend start",
+
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+
+    "test:frontend": "npm --prefix frontend test -- --watch=false --browsers=ChromeHeadlessCI",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "npm --prefix backend exec -- tsc -p tsconfig.json --noEmit",
+    "typecheck:frontend": "npm --prefix frontend exec -- tsc -p src/tsconfig.app.json --noEmit",
+
+    "install:all": "npm --prefix backend install && npm --prefix frontend install --legacy-peer-deps",
+    "prisma:migrate": "npm --prefix backend run prisma:migrate",
+    "prisma:studio": "npm --prefix backend run prisma:studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

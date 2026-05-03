@@ -28,21 +28,35 @@ You'll need:
   values — DATABASE_URL, JWT_SECRET, PORT)
 
 ```bash
-# Backend
-cd backend
-docker compose up -d                    # Postgres on :5432
-npm install
-npx prisma migrate dev                  # apply schema + seed
-npm run start:dev                       # API on :3001
+# 1. Postgres
+cd backend && docker compose up -d            # Postgres on :5432
 
-# Frontend (in another terminal)
-cd frontend
-npm install --legacy-peer-deps          # see CLAUDE.md lesson #8
-npm start                               # dashboard on :4204
+# 2. Install everything (root + both apps)
+cd ..
+npm install                                   # root deps (concurrently)
+npm run install:all                           # backend + frontend (handles --legacy-peer-deps)
+
+# 3. Apply database schema + seed
+npm run prisma:migrate
+
+# 4. Run both apps together
+npm run dev                                   # backend :3001 + frontend :4204
 ```
 
 Open http://localhost:4204 and log in with one of the seeded users
 (see `backend/prisma/seed.ts` for credentials).
+
+### Other root scripts
+
+| Command                   | What it does                                    |
+|---------------------------|-------------------------------------------------|
+| `npm run dev`             | Run backend + frontend in parallel              |
+| `npm run dev:backend`     | Backend only (`nest start --watch`)             |
+| `npm run dev:frontend`    | Frontend only (`ng serve`)                      |
+| `npm run typecheck`       | `tsc --noEmit` on both apps                     |
+| `npm run build`           | Production builds for both apps                 |
+| `npm run test:frontend`   | Karma tests headless                            |
+| `npm run prisma:studio`   | Open Prisma's DB browser                        |
 
 ## Documentation
 
