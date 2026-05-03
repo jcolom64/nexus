@@ -82,7 +82,7 @@ section in CLAUDE.md → architecture / phase plan.
 
 | Tab            | State source                | Phase     |
 |----------------|-----------------------------|-----------|
-| Health         | `HealthApiService` + `AuditApiService` for events; 4 services still mock-flagged | **Phase H — done** |
+| Health         | `HealthApiService` + per-source pills (5c) + `AuditApiService` for events | **Phase H + 5c — done** |
 | Account        | `UsersApiService` (real)    | **Phase 1 — done** |
 | User Groups    | `GroupsApiService` (real)              | **Phase 2 — done** |
 | Security       | `SecurityApiService` (singleton row)    | **Phase 4 — done** |
@@ -118,12 +118,17 @@ resources.
 `System → Health` doesn't follow the table-layout standard — it's a
 dashboard. Four blocks:
 
-1. **Status strip** — six `.status-pill`s. The first two (API Gateway,
-   Database) are populated from `GET /api/health/check` on every Health-tab
-   visit. The remaining four (Message Queue, Cache Layer, Auth Service,
-   Object Storage) are mock placeholders for subsystems we don't yet
-   operate; rendered with `class="is-mock"` (dashed border + `DEMO` tag)
-   so they're visibly distinct from authoritative pills.
+1. **Status strip** — split into two labelled sections after Phase 5c:
+   - **Platform Services**: API Gateway + Database, populated from
+     `GET /api/health/check` on every Health-tab visit.
+   - **Data Sources**: one pill per registered Source, derived from the
+     already-loaded `dataSources` array. Status maps `connected → success`,
+     `degraded → warning`, `disconnected → danger`. Empty state when no
+     sources are registered.
+
+   The four DEMO pills (Message Queue / Cache Layer / Auth Service /
+   Object Storage) and their `class="is-mock"` styling were retired in
+   Phase 5c — real per-source pills replaced them.
 
 2. **Metrics grid** — two `.split-card`s (CPU, Memory). Each shows an
    App row and a System row, both as labelled progress bars. Driven by
@@ -160,7 +165,7 @@ flavors in use:
 |---|---|---|
 | Field with no consumer | `disabled` input + `<span class="label-help">Reserved — …</span>` | `firstDayOfWeek` in System → Configuration → General |
 | Whole card section reserved | `<div class="info-banner">` at top of `.settings-body` explaining values persist but no subsystem reads them | Performance & Limits, Licensing (also display-only) |
-| Mock data inside a real-data widget | `class="is-mock"` (dashed border) + `<span class="mock-tag">DEMO</span>` | Service Status pills for Queue / Cache / Auth / Object Storage |
+| Mock data inside a real-data widget | `class="is-mock"` (dashed border) + `<span class="mock-tag">DEMO</span>` | (No live example — the original Service Status DEMO pills were retired in Phase 5c when real per-source pills replaced them. Re-introduce when a future widget needs to mix mock and real entries.) |
 
 Why: silently storing a setting that doesn't drive behavior surfaces as
 "I changed it but nothing happened" bug reports. Be honest up front.
@@ -324,7 +329,7 @@ SCSS classes — don't reinvent.
 
 - [x] Dashboard (three views, mock data)
 - [x] Assets (catalog/domains/lineage stub)
-- [x] System → Health (real API+DB pills, real CPU/memory, audit-driven Recent Events) — Phase H
+- [x] System → Health (real API+DB pills, per-source pills, CPU/memory, audit-driven Recent Events) — Phase H + 5c
 - [x] System → Account (real API, lockout protection)
 - [x] System → User Groups (real API — Phase 2)
 - [x] System → Security (real API — Phase 4)
@@ -338,6 +343,6 @@ SCSS classes — don't reinvent.
 - [x] Wire Assets page to `/api/assets` (catalog + domains, with real lineage edges) — Phase 5a
 - [x] Test / Sync buttons on Postgres sources (real connector) — Phase 5b
 - [x] Source create/edit modal on Configuration → Data Sources card — Phase 5b follow-up
+- [x] Per-source health pills on Health tab; DEMO pills retired — Phase 5c
 - [ ] Wire Notifications & Email card (still Reserved until delivery subsystem ships)
-- [ ] Per-source health pills on Health tab — Phase 5c
 - [ ] Live Dashboard via WebSocket — Phase 6

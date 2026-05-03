@@ -297,9 +297,11 @@ data, **say so visibly**. Three concrete patterns we landed on:
 - **Reserved** card section (e.g. Performance & Limits has no cache layer
   / job queue yet): inline `info-banner` at the top of the card body
   explaining values persist and audit-log but no subsystem reads them.
-- **Mock** data in real-data widgets (e.g. four placeholder Service Status
-  pills before Phase 5/6 wires them): visual treatment — dashed border,
-  `DEMO` tag — so it's obvious which numbers are authoritative.
+- **Mock** data in real-data widgets: visual treatment — dashed border,
+  `DEMO` tag — so it's obvious which numbers are authoritative. (The
+  Phase H-era DEMO Service Status pills used this; they were retired in
+  Phase 5c when real per-source pills replaced them. Re-introduce the
+  pattern for any future placeholder-among-real-pills widget.)
 
 Why: silently storing a setting that doesn't drive behavior surfaces as
 "I changed it but nothing happened" bug reports. Saving the user that
@@ -359,7 +361,7 @@ Phases 1–4 are shipped end-to-end. Subsequent phases:
 | H     | `HealthModule` (`/health/check`, `/health/metrics`) | System → Health (real status + CPU/mem/DB size + audit-driven Recent Events) | done   |
 | 5a    | `SourcesModule` + `AssetsModule` (metadata only — no connectors yet) | Assets page + Configuration → Data Sources card off mock arrays | done   |
 | 5b    | Postgres connector (test + introspect → auto-populate assets) | Test/Sync buttons on Configuration → Data Sources card; status + lastSyncAt flip from probe results | done   |
-| 5c    | Source-status pills on Health (per-source); decide DEMO-pill fate | Health tab third row | queued |
+| 5c    | Source-status pills on Health; DEMO pills retired              | Two sections — Platform Services + Data Sources — each pill driven by real state | done   |
 | 6     | WebSocket gateway for live KPIs              | stream Dashboard sparklines             | queued |
 
 ### Phase 4 — singleton settings pattern
@@ -457,6 +459,25 @@ JWT becomes valid via `NbAuthService.onTokenChange()`, and exposes
   the credential. `editingSource.hasCredentials` drives the
   "credentials configured" hint so the UI never round-trips the secret.
 
+### Phase 5c — Source-status pills on Health
+
+The Health tab's status strip splits into **two sections** with explicit
+labels:
+
+- **Platform Services** — fed by `GET /api/health/check`. API Gateway +
+  Database. Probed live on every Health-tab visit.
+- **Data Sources** — one pill per registered Source, derived from
+  `dataSources` (already loaded on init + refreshed on every Test/Sync).
+  Status mapping: `connected → success`, `degraded → warning`,
+  `disconnected → danger`. Empty state when no sources are registered.
+
+The four DEMO pills (Message Queue / Cache Layer / Auth Service / Object
+Storage) and the `ServiceStatus.mock` flag + `.is-mock` SCSS are
+**retired** in 5c — they were placeholders for subsystems we don't operate;
+real per-source pills are the meaningful replacement. The honest-UI
+lesson (#10) still applies broadly to other parts of the app (Reserved
+banners on Performance & Limits, etc.).
+
 ### License module (split out of SystemConfig)
 
 License is install-time data — key, plan, seat cap, expiry — owned by the
@@ -500,4 +521,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03 — Phase 5b + Source create/edit modal shipped.*
+*Last updated: 2026-05-03 — Phase 5 complete (5a + 5b + Source modal + 5c).*

@@ -37,10 +37,6 @@ interface ServiceStatus {
   name: string;
   status: HealthStatus;
   label: string;
-  // True for placeholders that haven't been wired to a real subsystem yet.
-  // The pill renders with a dashed border and a "DEMO" tag so it's obvious
-  // the value isn't authoritative.
-  mock?: boolean;
 }
 
 interface SystemEvent {
@@ -364,16 +360,13 @@ export class SystemComponent implements OnInit {
     ];
   }
 
-  // The first two pills (API Gateway, Database) are overwritten by data from
-  // /api/health/check on every Health-tab open. The latter four stay mock —
-  // those subsystems don't exist yet (see Phase H2 scope).
+  // Platform Services row — fed by /api/health/check on every Health-tab
+  // open. Phase 5c retired the four DEMO pills (Message Queue / Cache
+  // Layer / Auth Service / Object Storage) that used to live here; data
+  // sources have their own row below now (`dataSourceStatuses`).
   serviceStatuses: ServiceStatus[] = [
-    { name: 'API Gateway',    status: 'info',    label: 'Checking…' },
-    { name: 'Database',       status: 'info',    label: 'Checking…' },
-    { name: 'Message Queue',  status: 'success', label: 'Active',     mock: true },
-    { name: 'Cache Layer',    status: 'warning', label: 'Degraded',   mock: true },
-    { name: 'Auth Service',   status: 'success', label: 'Operational', mock: true },
-    { name: 'Object Storage', status: 'success', label: 'Healthy',    mock: true },
+    { name: 'API Gateway', status: 'info', label: 'Checking…' },
+    { name: 'Database',    status: 'info', label: 'Checking…' },
   ];
   healthError: string | null = null;
   healthLastCheckedAt: string | null = null;
@@ -1197,12 +1190,11 @@ export class SystemComponent implements OnInit {
     this.healthError = null;
     this.healthApi.check().subscribe({
       next: (result) => {
-        // Splice the live components in over the placeholder slots while
-        // leaving the four mock pills untouched.
+        // Splice the live components in by name. Two pills currently —
+        // API Gateway and Database — but we keep the loop generic in
+        // case the backend grows more "platform" components later.
         for (const real of result.components) {
-          const idx = this.serviceStatuses.findIndex(
-            (s) => !s.mock && s.name === real.name,
-          );
+          const idx = this.serviceStatuses.findIndex((s) => s.name === real.name);
           if (idx >= 0) {
             this.serviceStatuses[idx] = this.toServiceStatus(real);
           }
@@ -1211,10 +1203,9 @@ export class SystemComponent implements OnInit {
       },
       error: (err) => {
         this.healthError = err?.error?.message || err?.message || 'Health probe failed';
-        // Fail visibly: mark the live pills as down so it's clear the page
-        // doesn't have authoritative data.
+        // Fail visibly: mark all platform pills as down so it's clear the
+        // page doesn't have authoritative data.
         for (const s of this.serviceStatuses) {
-          if (s.mock) continue;
           s.status = 'danger';
           s.label = 'Unreachable';
         }
@@ -1225,6 +1216,31 @@ export class SystemComponent implements OnInit {
       next: (m) => (this.healthMetrics = m),
       error: () => (this.healthMetrics = null),
     });
+  }
+
+  // Phase 5c: each registered Source becomes a pill on the Health tab.
+  // `dataSources` is already loaded on init + refreshed on every Test/Sync,
+  // so this getter just maps display states without a new fetch.
+  get dataSourceStatuses(): ServiceStatus[] {
+    return this.dataSources.map((ds) => ({
+      name: ds.name,
+      status: this.dataSourceHealthStatus(ds.status),
+      label: this.dataSourceHealthLabel(ds),
+    }));
+  }
+
+  private dataSourceHealthStatus(s: DataSourceStatus): HealthStatus {
+    if (s === 'connected') return 'success';
+    if (s === 'degraded') return 'warning';
+    return 'danger';
+  }
+
+  private dataSourceHealthLabel(ds: DataSource): string {
+    switch (ds.status) {
+      case 'connected':    return 'Connected';
+      case 'degraded':     return 'Degraded';
+      case 'disconnected': return 'Disconnected';
+    }
   }
 
   // Memory % of system total — used by the Memory card's "App" bar so it's

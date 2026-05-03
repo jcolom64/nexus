@@ -380,17 +380,39 @@
             </div>
             <div class="tab-content-area">
               <div class="health-dashboard" *ngIf="activeTab === 'health'">
-                <section class="health-section status-strip">
-                  <div class="status-pill" *ngFor="let svc of serviceStatuses" [class.is-mock]="svc.mock">
-                    <span class="status-dot" [ngClass]="'dot-' + svc.status"></span>
-                    <div class="status-meta">
-                      <div class="status-name">
-                        {{ svc.name }}
-                        <span class="mock-tag" *ngIf="svc.mock" title="Placeholder — not wired to a real subsystem yet">DEMO</span>
+                <section class="health-section">
+                  <div class="status-section-label">Platform Services</div>
+                  <div class="status-strip">
+                    <div class="status-pill" *ngFor="let svc of serviceStatuses">
+                      <span class="status-dot" [ngClass]="'dot-' + svc.status"></span>
+                      <div class="status-meta">
+                        <div class="status-name">{{ svc.name }}</div>
+                        <div class="status-label">{{ svc.label }}</div>
                       </div>
-                      <div class="status-label">{{ svc.label }}</div>
                     </div>
                   </div>
+                </section>
+
+                <section class="health-section">
+                  <div class="status-section-label">
+                    Data Sources
+                    <span class="status-section-count" *ngIf="dataSources.length > 0">{{ dataSources.length }}</span>
+                  </div>
+                  <div class="status-strip" *ngIf="dataSources.length > 0; else noDataSources">
+                    <div class="status-pill" *ngFor="let ds of dataSourceStatuses">
+                      <span class="status-dot" [ngClass]="'dot-' + ds.status"></span>
+                      <div class="status-meta">
+                        <div class="status-name">{{ ds.name }}</div>
+                        <div class="status-label">{{ ds.label }}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <ng-template #noDataSources>
+                    <div class="status-empty">
+                      No data sources registered yet. Add one in
+                      System &rarr; Configuration &rarr; Data Sources.
+                    </div>
+                  </ng-template>
                 </section>
 
                 <section class="health-section metrics-grid two-col">
