@@ -532,6 +532,7 @@
                           <nb-icon [icon]="statusIcon(event.severity)" [status]="event.severity"></nb-icon>
                           <div class="event-body">
                             <div class="event-line">
+                              <span class="event-category" [attr.data-category]="event.category">{{ event.category }}</span>
                               <span class="event-source">{{ event.source }}</span>
                               <span class="event-time">{{ eventTimestamp(event.timestamp) }}</span>
                             </div>

@@ -174,11 +174,40 @@
             <dt>Source</dt>
             <dd>{{ selectedAsset.source }}</dd>
           </div>
-          <div>
+          <div class="domain-cell">
             <dt>Domain</dt>
-            <dd>
+            <dd *ngIf="!editingDomain">
               <span class="domain-pill" [attr.data-domain]="selectedAsset.domain">{{ domainLabel(selectedAsset.domain) }}</span>
+              <button
+                class="domain-edit-btn"
+                nbButton ghost size="tiny"
+                (click)="startDomainEdit()"
+                aria-label="Edit domain"
+                nbTooltip="Re-categorise this asset">
+                <nb-icon icon="edit-2-outline"></nb-icon>
+              </button>
             </dd>
+            <dd *ngIf="editingDomain" class="domain-editor">
+              <nb-select
+                size="small"
+                [(selected)]="pendingDomain"
+                [disabled]="domainSaving">
+                <nb-option *ngFor="let d of editableDomains" [value]="d">{{ domainLabel(d) }}</nb-option>
+              </nb-select>
+              <button
+                nbButton status="primary" size="tiny"
+                [disabled]="domainSaving || !pendingDomain || pendingDomain === selectedAsset.domain"
+                (click)="saveDomain()">
+                {{ domainSaving ? 'Saving…' : 'Save' }}
+              </button>
+              <button
+                nbButton ghost size="tiny"
+                [disabled]="domainSaving"
+                (click)="cancelDomainEdit()">
+                Cancel
+              </button>
+            </dd>
+            <div *ngIf="domainError" class="domain-error">{{ domainError }}</div>
           </div>
           <div>
             <dt>Owner</dt>

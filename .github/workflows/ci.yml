@@ -18,6 +18,10 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # CREDENTIALS_KEY is required by sources/connectors/credentials.ts on
+    # module init; an arbitrary 32-byte hex value is fine for typecheck.
+    env:
+      CREDENTIALS_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +37,7 @@ jobs:
       - run: npx tsc -p tsconfig.json --noEmit
 
   frontend:
-    name: frontend (typecheck)
+    name: frontend (build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,7 +54,15 @@ jobs:
       # Frontend needs --legacy-peer-deps because tslint-language-service and
       # codelyzer disagree on tslint peer ranges (see CLAUDE.md lesson #8).
       - run: npm ci --legacy-peer-deps
+
+      # Typecheck first — fast, surfaces TS errors clearly.
       - run: npx tsc -p src/tsconfig.app.json --noEmit
+
+      # Full ng build catches Angular *template* errors (e.g. invalid
+      # binding syntax like the pre-Angular-12 `??` parser bug we hit on
+      # Phase 5a). `tsc --noEmit` doesn't run the template compiler, so
+      # the build step is the only thing that catches them in CI.
+      - run: npx ng build
 
       # Karma tests are intentionally skipped here — there are no `.spec.ts`
       # files in the codebase yet. Re-enable this step once tests exist:

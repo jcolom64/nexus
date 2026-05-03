@@ -59,7 +59,11 @@ Three views:
   upstream/downstream lineage chips. Lineage edges are *qualifiedNames*;
   the `assetByQName(qn)` helper resolves them and the `*ngIf` guard
   skips chips for assets that aren't currently loaded (cross-source or
-  not-yet-registered).
+  not-yet-registered). The detail panel's **Domain** field is inline-editable
+  (pencil icon → dropdown → save) — used to re-categorise auto-discovered
+  assets that come back from `POST /api/sources/:id/sync` with the
+  placeholder `OPS` domain. Saves go through `PATCH /api/assets/:id` and
+  audit-log under `category=DATA / action=UPDATE / changedFields=['domain']`.
 - **Domains** — six domain cards (sales, finance, marketing, product,
   compliance, ops) computed from the loaded asset list. Asset count,
   top assets, and unique-owner avatar stack come from grouping by
@@ -150,7 +154,10 @@ dashboard. Four blocks:
    `AuditApiService.query({ pageSize: N })`. Header has a `Last [N] events`
    selector (5 / 10 / 25 / 50). `.events-card > nb-card-body` has
    `max-height: 22rem; overflow-y: auto` so the list scrolls without
-   pushing the grid below.
+   pushing the grid below. Each row carries a colour-coded category
+   chip (`AUTH`/`USER`/`CONFIG`/`DATA`/`SECURITY`) so a steward can
+   tell at a glance whether the recent activity is auth churn, config
+   edits, or data-catalog work.
 
 All timestamps in the Health tab route through `formatInZone` so they
 respect the saved tz/dateFormat (audit log seconds-precision, license

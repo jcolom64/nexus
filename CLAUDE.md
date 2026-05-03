@@ -348,6 +348,20 @@ row), append the `UPDATE` statement to the generated `migration.sql`
 manually before running `migrate dev` to apply it. Default-only schema
 edits don't touch existing rows.
 
+### 15. `tsc --noEmit` doesn't validate Angular templates
+
+`tsc -p src/tsconfig.app.json --noEmit` checks `.ts` files but doesn't
+run the Angular template compiler. Template-side bugs (invalid binding
+syntax, references to symbols that don't exist on the component, the
+pre-Angular-12 `??` parser bug we hit on Phase 5a) sail through `tsc`
+and only blow up at runtime when the chunk loads.
+
+Fix: run a real `npx ng build` in CI on top of `tsc --noEmit`. The
+typecheck step is still useful — it's faster and gives clearer errors
+on TS-only problems — but the build is the only thing that catches
+template regressions before they reach the browser. See
+`.github/workflows/ci.yml` for the current setup.
+
 ## Phase plan (backend)
 
 Phases 1–4 are shipped end-to-end. Subsequent phases:

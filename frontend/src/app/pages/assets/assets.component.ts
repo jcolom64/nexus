@@ -97,6 +97,15 @@ export class AssetsComponent implements OnInit, OnDestroy {
   private lastTz = 'UTC';
   private lastFmt = 'YYYY-MM-DD';
 
+  // Inline domain editor state — see the detail panel "Domain" field.
+  // Sync auto-discovers assets with `domain=OPS` as a placeholder; this
+  // lets a steward re-categorise without leaving the catalog.
+  editingDomain = false;
+  pendingDomain: Domain | null = null;
+  domainSaving = false;
+  domainError: string | null = null;
+  readonly editableDomains: Domain[] = ['sales', 'finance', 'marketing', 'product', 'compliance', 'ops'];
+
   constructor(
     private readonly assetsApi: AssetsApiService,
     private readonly configStore: SystemConfigStore,
@@ -250,10 +259,61 @@ export class AssetsComponent implements OnInit, OnDestroy {
   selectAsset(asset: DataAsset | undefined): void {
     if (!asset) return;
     this.selectedAssetId = this.selectedAssetId === asset.id ? null : asset.id;
+    this.resetDomainEditor();
   }
 
   clearSelection(): void {
     this.selectedAssetId = null;
+    this.resetDomainEditor();
+  }
+
+  // ---- Domain inline editor ---------------------------------------------
+
+  startDomainEdit(): void {
+    if (!this.selectedAsset) return;
+    this.editingDomain = true;
+    this.pendingDomain = this.selectedAsset.domain;
+    this.domainError = null;
+  }
+
+  cancelDomainEdit(): void {
+    this.resetDomainEditor();
+  }
+
+  saveDomain(): void {
+    const target = this.selectedAsset;
+    const next = this.pendingDomain;
+    if (!target || !next || this.domainSaving) return;
+    if (next === target.domain) {
+      this.resetDomainEditor();
+      return;
+    }
+    this.domainSaving = true;
+    this.domainError = null;
+    this.assetsApi.update(target.id, { domain: this.assetDomainWireToApi(next) }).subscribe({
+      next: (updated) => {
+        const fresh = this.toDataAsset(updated);
+        const idx = this.assets.findIndex((a) => a.id === fresh.id);
+        if (idx >= 0) this.assets[idx] = fresh;
+        this.domainSaving = false;
+        this.resetDomainEditor();
+      },
+      error: (err) => {
+        this.domainError = err?.error?.message || err?.message || 'Failed to save domain';
+        this.domainSaving = false;
+      },
+    });
+  }
+
+  private resetDomainEditor(): void {
+    this.editingDomain = false;
+    this.pendingDomain = null;
+    this.domainError = null;
+    this.domainSaving = false;
+  }
+
+  private assetDomainWireToApi(d: Domain): ApiAssetDomain {
+    return d.toUpperCase() as ApiAssetDomain;
   }
 
   // From the Domains view: drop into the Catalog with the search box pre-filled

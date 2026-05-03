@@ -44,6 +44,7 @@ interface SystemEvent {
   severity: HealthStatus;
   source: string;
   message: string;
+  category: ApiAuditCategory;
 }
 
 type UserRole = 'Administrator' | 'Manager' | 'User' | 'Auditor';
@@ -549,6 +550,7 @@ export class SystemComponent implements OnInit {
       severity,
       source: e.actorName || e.actorEmail,
       message: `${e.action.toLowerCase()} ${e.resourceType.toLowerCase()}: ${e.resource}`,
+      category: e.category,
     };
   }
 

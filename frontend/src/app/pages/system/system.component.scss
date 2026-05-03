@@ -363,20 +363,45 @@
 
                 .event-line {
                   display: flex;
-                  justify-content: space-between;
+                  justify-content: flex-start;
                   align-items: baseline;
                   gap: 0.5rem;
+                  flex-wrap: wrap;
+
+                  .event-category {
+                    font-size: 0.5625rem;
+                    font-weight: 700;
+                    letter-spacing: 0.06em;
+                    padding: 0.0625rem 0.375rem;
+                    border-radius: 0.625rem;
+                    background: nb-theme(background-basic-color-2);
+                    color: nb-theme(text-hint-color);
+                    flex-shrink: 0;
+                    line-height: 1.4;
+
+                    &[data-category="AUTH"]     { background: nb-theme(color-info-transparent-200);    color: nb-theme(color-info-700);    }
+                    &[data-category="USER"]     { background: nb-theme(color-primary-transparent-200); color: nb-theme(color-primary-700); }
+                    &[data-category="CONFIG"]   { background: nb-theme(color-warning-transparent-200); color: nb-theme(color-warning-700); }
+                    &[data-category="DATA"]     { background: nb-theme(color-success-transparent-200); color: nb-theme(color-success-700); }
+                    &[data-category="SECURITY"] { background: nb-theme(color-danger-transparent-200);  color: nb-theme(color-danger-700);  }
+                  }
 
                   .event-source {
                     font-size: 0.75rem;
                     font-weight: 600;
                     color: nb-theme(text-basic-color);
+                    flex: 1;
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                   }
 
                   .event-time {
                     font-size: 0.6875rem;
                     color: nb-theme(text-hint-color);
                     font-family: 'SF Mono', Menlo, Consolas, monospace;
+                    flex-shrink: 0;
                   }
                 }
 
