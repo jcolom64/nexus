@@ -211,11 +211,14 @@ model Source {
   status      SourceStatus @default(DISCONNECTED)
   description String       @default("")
 
-  // Connection details. Secrets are deliberately not stored here yet —
-  // Phase 5b will add a separate encrypted credentials table.
-  host        String?
-  port        Int?
-  database    String?
+  // Connection details. `passwordEncrypted` holds an AES-256-GCM bundle
+  // (iv.ciphertext.tag, base64) keyed off the CREDENTIALS_KEY env var —
+  // see `connectors/credentials.ts`. Password is write-only on the API.
+  host              String?
+  port              Int?
+  database          String?
+  username          String?
+  passwordEncrypted String?
 
   lastSyncAt  DateTime?
   createdAt   DateTime     @default(now())

@@ -336,7 +336,8 @@ SCSS classes — don't reinvent.
 - [x] Wire Health page to `/api/health/check` + `/api/health/metrics` — Phase H
 - [x] Wire Configuration → Data Sources card to `/api/sources` — Phase 5a
 - [x] Wire Assets page to `/api/assets` (catalog + domains, with real lineage edges) — Phase 5a
+- [x] Test / Sync buttons on Postgres sources (real connector) — Phase 5b
+- [ ] Source create/edit modal (Phase 5a follow-up — currently API-only)
 - [ ] Wire Notifications & Email card (still Reserved until delivery subsystem ships)
-- [ ] Real connectors — test/introspect/sync — Phase 5b
 - [ ] Per-source health pills on Health tab — Phase 5c
 - [ ] Live Dashboard via WebSocket — Phase 6

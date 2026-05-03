@@ -34,4 +34,16 @@ export class CreateSourceDto {
   @IsString()
   @MaxLength(128)
   database?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  username?: string;
+
+  // Plaintext only on the way in — the service encrypts before persisting,
+  // and the response DTO never echoes it back.
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  password?: string;
 }

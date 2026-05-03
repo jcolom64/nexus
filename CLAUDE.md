@@ -358,7 +358,7 @@ Phases 1–4 are shipped end-to-end. Subsequent phases:
 | 4     | `ConfigModule` + `SecurityModule`            | System → Configuration + Security       | done   |
 | H     | `HealthModule` (`/health/check`, `/health/metrics`) | System → Health (real status + CPU/mem/DB size + audit-driven Recent Events) | done   |
 | 5a    | `SourcesModule` + `AssetsModule` (metadata only — no connectors yet) | Assets page + Configuration → Data Sources card off mock arrays | done   |
-| 5b    | Postgres connector (test + introspect → auto-populate assets) | "Sync now" on a source; status flips to derived | queued |
+| 5b    | Postgres connector (test + introspect → auto-populate assets) | Test/Sync buttons on Configuration → Data Sources card; status + lastSyncAt flip from probe results | done   |
 | 5c    | Source-status pills on Health (per-source); decide DEMO-pill fate | Health tab third row | queued |
 | 6     | WebSocket gateway for live KPIs              | stream Dashboard sparklines             | queued |
 
@@ -412,6 +412,44 @@ JWT becomes valid via `NbAuthService.onTokenChange()`, and exposes
   `lastSyncAt` are edited by humans. Phase 5b layers a real Postgres
   connector that flips them automatically from probe results.
 
+### Phase 5b — Postgres connector
+
+- `Source` gains `username` + `passwordEncrypted` columns. Password is
+  encrypted with AES-256-GCM keyed off the `CREDENTIALS_KEY` env var
+  (32 bytes, hex; generate one with
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+  The wire format is `iv.ciphertext.tag` in base64. Helpers live at
+  `backend/src/sources/connectors/credentials.ts`. Rotating the key
+  invalidates every existing ciphertext — passwords have to be re-saved.
+- The wire response **never includes the password** — `toResponse()`
+  strips it. `hasCredentials: boolean` lets the UI gate buttons without
+  echoing the secret.
+- `PostgresConnector` (`connectors/postgres-connector.ts`) wraps the
+  `pg` driver:
+  - `testConnection()` connects, runs `SELECT 1`, returns `{ ok, latencyMs, error? }`.
+  - `introspect(sourceName)` queries `information_schema` for tables/views
+    in every non-system schema, plus `pg_class.reltuples` for an
+    estimated row count. Returns assets keyed by
+    `<sourceName>.<schema>.<table>`.
+  - Both call paths use a 5s connect timeout + 10s statement timeout.
+- New endpoints (auth-gated, `Manager`+):
+  - `POST /api/sources/:id/test` — probes; flips `status` to CONNECTED /
+    DISCONNECTED. Always returns 200 — failures land in `result.error`.
+    Audited as `ACCESS / Source` with outcome SUCCESS or FAILED.
+  - `POST /api/sources/:id/sync` — introspects + upserts assets by
+    `qualifiedName`. Auto-discovered assets get `domain=OPS` as a
+    placeholder; humans re-categorise. Updates `status` + `lastSyncAt`
+    on success. Audited as `UPDATE / Source` with discovered/upserted
+    counts in metadata.
+- `BadRequestException` paths: non-Postgres source type ("not implemented
+  yet"), or missing connection details (host/port/database/username/
+  passwordEncrypted).
+- The seed sets credentials on the `orders-db` source pointing at the
+  local Nexus Postgres so devs have a working dogfood target. Other
+  seeded sources (`analytics-warehouse`, `metrics-stream`, etc.) remain
+  intentionally credential-less — they'll come alive when real
+  connectors land for their types.
+
 ### License module (split out of SystemConfig)
 
 License is install-time data — key, plan, seat cap, expiry — owned by the
@@ -455,4 +493,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03 — Phase 5a (Sources + Assets metadata) shipped.*
+*Last updated: 2026-05-03 — Phase 5b (Postgres connector + Test/Sync) shipped.*

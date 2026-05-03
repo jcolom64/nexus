@@ -10,6 +10,7 @@ import {
   UserState,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { encryptSecret } from '../src/sources/connectors/credentials';
 
 const prisma = new PrismaClient();
 
@@ -105,8 +106,31 @@ async function main(): Promise<void> {
 
   // ---- Sources & Assets (Phase 5a) ---------------------------------------
 
-  const seedSources = [
-    { name: 'orders-db',           type: SourceType.POSTGRES,  status: SourceStatus.CONNECTED,    description: 'Primary OLTP database — billing, customers, products.' },
+  // Most of these are aspirational — connection params are nulled out
+  // because the systems don't actually exist. The exception is `orders-db`,
+  // which we point at the local Nexus Postgres (same DB the API itself
+  // uses) so Phase 5b's test/sync flow has something live to dogfood
+  // against. Re-running the seed re-encrypts the password (a fresh IV
+  // each time) but the plaintext stays the same.
+  const seedSources: Array<{
+    name: string;
+    type: SourceType;
+    status: SourceStatus;
+    description: string;
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+  }> = [
+    {
+      name: 'orders-db',
+      type: SourceType.POSTGRES,
+      status: SourceStatus.DISCONNECTED, // flips to CONNECTED on first /test
+      description: 'Local Nexus Postgres — used to dogfood the connector pipeline.',
+      host: 'localhost', port: 5432, database: 'nexus',
+      username: 'nexus', password: 'nexus',
+    },
     { name: 'analytics-warehouse', type: SourceType.SNOWFLAKE, status: SourceStatus.CONNECTED,    description: 'Modeled fact and dim views for analytics + reporting.' },
     { name: 'metrics-stream',      type: SourceType.KAFKA,     status: SourceStatus.DEGRADED,     description: 'Event stream for product analytics. 30-day retention.' },
     { name: 'object-store',        type: SourceType.S3,        status: SourceStatus.CONNECTED,    description: 'Cold storage for raw event JSON.' },
@@ -115,10 +139,20 @@ async function main(): Promise<void> {
   ];
 
   for (const s of seedSources) {
+    const data = {
+      type: s.type,
+      status: s.status,
+      description: s.description,
+      host: s.host ?? null,
+      port: s.port ?? null,
+      database: s.database ?? null,
+      username: s.username ?? null,
+      passwordEncrypted: s.password ? encryptSecret(s.password) : null,
+    };
     await prisma.source.upsert({
       where: { name: s.name },
-      update: { type: s.type, status: s.status, description: s.description },
-      create: s,
+      update: data,
+      create: { name: s.name, ...data },
     });
   }
   console.log(`Seeded ${seedSources.length} sources`);

@@ -1120,17 +1120,44 @@
                         </div>
                         <div class="setting-control">
                           <div class="datasource-list">
-                            <div class="datasource-row" *ngFor="let ds of dataSources">
-                              <div class="ds-meta">
-                                <span class="ds-name">{{ ds.name }}</span>
-                                <span class="ds-type">{{ ds.type }}</span>
+                            <ng-container *ngFor="let ds of dataSources">
+                              <div class="datasource-row">
+                                <div class="ds-meta">
+                                  <span class="ds-name">{{ ds.name }}</span>
+                                  <span class="ds-type">{{ ds.type }}</span>
+                                </div>
+                                <span class="state-pill" [attr.data-state]="dataSourceStatusPillState(ds.status)">
+                                  <span class="state-dot"></span>
+                                  {{ dataSourceStatusLabel(ds.status) }}
+                                </span>
+                                <span class="ds-sync">{{ ds.lastSync }}</span>
+                                <div class="ds-actions" *ngIf="canProbeSource(ds)">
+                                  <button
+                                    nbButton ghost size="tiny"
+                                    [disabled]="dataSourceActions[ds.id]?.busy"
+                                    (click)="testSource(ds)"
+                                    title="Probe the connection">
+                                    <nb-icon icon="flash-outline"></nb-icon>
+                                    Test
+                                  </button>
+                                  <button
+                                    nbButton ghost size="tiny"
+                                    [disabled]="dataSourceActions[ds.id]?.busy"
+                                    (click)="syncSource(ds)"
+                                    title="Discover tables and upsert assets">
+                                    <nb-icon icon="sync-outline"></nb-icon>
+                                    Sync
+                                  </button>
+                                </div>
                               </div>
-                              <span class="state-pill" [attr.data-state]="dataSourceStatusPillState(ds.status)">
-                                <span class="state-dot"></span>
-                                {{ dataSourceStatusLabel(ds.status) }}
-                              </span>
-                              <span class="ds-sync">{{ ds.lastSync }}</span>
-                            </div>
+                              <div
+                                *ngIf="dataSourceActions[ds.id]?.message"
+                                class="ds-action-result"
+                                [class.is-ok]="dataSourceActions[ds.id]?.ok"
+                                [class.is-fail]="dataSourceActions[ds.id]?.ok === false">
+                                {{ dataSourceActions[ds.id]?.message }}
+                              </div>
+                            </ng-container>
                           </div>
                         </div>
                       </div>

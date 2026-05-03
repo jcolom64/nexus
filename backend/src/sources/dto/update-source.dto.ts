@@ -12,4 +12,10 @@ export class UpdateSourceDto {
   @IsOptional() @IsString() @MaxLength(255) host?: string;
   @IsOptional() @IsInt() @Min(1) @Max(65535) port?: number;
   @IsOptional() @IsString() @MaxLength(128) database?: string;
+  @IsOptional() @IsString() @MaxLength(128) username?: string;
+
+  // Same semantics as `CreateSourceDto.password` plus a special case: an
+  // explicit empty string clears the stored credential. `undefined` leaves
+  // it alone.
+  @IsOptional() @IsString() @MaxLength(512) password?: string;
 }

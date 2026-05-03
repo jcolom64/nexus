@@ -100,4 +100,62 @@ export class SourcesController {
       metadata: { assetCount: target.assetCount },
     });
   }
+
+  // Probe the source. Always returns 200 — failures land in `result.error`
+  // so the operator can read what went wrong directly. Audited as ACCESS
+  // (we touched an external system, no data was mutated on our side
+  // beyond the source's status flag).
+  @Post(':id/test')
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER)
+  async test(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const target = await this.sources.findOne(id);
+    const result = await this.sources.test(id);
+    await this.audit.record({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action: 'ACCESS',
+      category: 'DATA',
+      resource: target.name,
+      resourceType: 'Source',
+      source: ipFrom(req),
+      outcome: result.ok ? 'SUCCESS' : 'FAILED',
+      metadata: { kind: 'test', latencyMs: result.latencyMs, status: result.status, error: result.error },
+    });
+    return result;
+  }
+
+  // Discover and upsert assets. Audited as UPDATE because the catalog is
+  // our data and is changing.
+  @Post(':id/sync')
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER)
+  async sync(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const target = await this.sources.findOne(id);
+    const result = await this.sources.sync(id);
+    await this.audit.record({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action: 'UPDATE',
+      category: 'DATA',
+      resource: target.name,
+      resourceType: 'Source',
+      source: ipFrom(req),
+      outcome: result.ok ? 'SUCCESS' : 'FAILED',
+      metadata: {
+        kind: 'sync',
+        discoveredCount: result.discoveredCount,
+        upsertedCount: result.upsertedCount,
+        durationMs: result.durationMs,
+        error: result.error,
+      },
+    });
+    return result;
+  }
 }

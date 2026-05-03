@@ -16,7 +16,14 @@ import {
 import { ApiSystemConfig } from '../../@core/api/config-api.service';
 import { ApiSecuritySettings, SecurityApiService } from '../../@core/api/security-api.service';
 import { ApiLicense, LicenseApiService } from '../../@core/api/license-api.service';
-import { ApiSource, ApiSourceStatus, ApiSourceType, SourcesApiService } from '../../@core/api/sources-api.service';
+import {
+  ApiSource,
+  ApiSourceStatus,
+  ApiSourceType,
+  ApiSyncSourceResult,
+  ApiTestSourceResult,
+  SourcesApiService,
+} from '../../@core/api/sources-api.service';
 import {
   ApiHealthComponent,
   ApiHealthMetrics,
@@ -112,6 +119,7 @@ interface DataSource {
   type: DataSourceType;
   status: DataSourceStatus;
   lastSync: string;
+  hasCredentials: boolean;
 }
 
 interface NotificationEvent {
@@ -238,6 +246,12 @@ export class SystemComponent implements OnInit {
   dataSources: DataSource[] = [];
   dataSourcesLoading = false;
   dataSourcesError: string | null = null;
+
+  // Per-source action state for the Test/Sync buttons. Keyed by source id;
+  // a source not in the map has never been acted on. `busy` flips while a
+  // request is in flight; `message` carries the last result (success
+  // summary or error). Cleared when a new action starts.
+  dataSourceActions: Record<string, { busy: boolean; ok?: boolean; message?: string }> = {};
 
   themeOptions: { value: ThemeChoice; label: string }[] = [
     { value: 'default', label: 'Default (light)' },
@@ -678,7 +692,64 @@ export class SystemComponent implements OnInit {
       lastSync: r.lastSyncAt
         ? formatInZone(new Date(r.lastSyncAt), tz, fmt)
         : 'Never',
+      hasCredentials: r.hasCredentials,
     };
+  }
+
+  // Phase 5b: Test + Sync are only meaningful for source types we have a
+  // connector for, and only when credentials are present. Other types
+  // hide the buttons entirely so the UI doesn't promise something we
+  // can't do.
+  canProbeSource(ds: DataSource): boolean {
+    return ds.type === 'postgres' && ds.hasCredentials;
+  }
+
+  testSource(ds: DataSource): void {
+    this.dataSourceActions[ds.id] = { busy: true };
+    this.sourcesApi.test(ds.id).subscribe({
+      next: (r: ApiTestSourceResult) => {
+        this.dataSourceActions[ds.id] = {
+          busy: false,
+          ok: r.ok,
+          message: r.ok
+            ? `Connected · ${r.latencyMs}ms`
+            : `Failed: ${r.error || 'unknown error'}`,
+        };
+        // Refresh the list so the row's status pill picks up the server-
+        // side change in the same paint.
+        this.loadDataSources();
+      },
+      error: (err) => {
+        this.dataSourceActions[ds.id] = {
+          busy: false,
+          ok: false,
+          message: err?.error?.message || err?.message || 'Test failed',
+        };
+      },
+    });
+  }
+
+  syncSource(ds: DataSource): void {
+    this.dataSourceActions[ds.id] = { busy: true };
+    this.sourcesApi.sync(ds.id).subscribe({
+      next: (r: ApiSyncSourceResult) => {
+        this.dataSourceActions[ds.id] = {
+          busy: false,
+          ok: r.ok,
+          message: r.ok
+            ? `Synced ${r.upsertedCount} asset${r.upsertedCount === 1 ? '' : 's'} · ${r.durationMs}ms`
+            : `Failed: ${r.error || 'unknown error'}`,
+        };
+        this.loadDataSources();
+      },
+      error: (err) => {
+        this.dataSourceActions[ds.id] = {
+          busy: false,
+          ok: false,
+          message: err?.error?.message || err?.message || 'Sync failed',
+        };
+      },
+    });
   }
 
   private sourceTypeApiToWire(t: ApiSourceType): DataSourceType {
