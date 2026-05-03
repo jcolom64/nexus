@@ -1104,6 +1104,15 @@
                       <span class="strength-pill" data-strength="moderate">{{ dataSources.length }} connected</span>
                     </header>
                     <div class="settings-body">
+                      <div class="info-banner" role="note">
+                        <nb-icon icon="info-outline"></nb-icon>
+                        <div>
+                          <strong>Reserved.</strong> The connected-sources list and connector
+                          defaults below persist and are audit-logged, but no real connector
+                          subsystem reads them yet. Wired in Phase 5 alongside Assets.
+                        </div>
+                      </div>
+
                       <div class="setting-row stacked">
                         <div class="setting-label">
                           <span class="label-title">Connected sources</span>
@@ -1177,6 +1186,16 @@
                       <h6>Notifications &amp; Email</h6>
                     </header>
                     <div class="settings-body">
+                      <div class="info-banner" role="note">
+                        <nb-icon icon="info-outline"></nb-icon>
+                        <div>
+                          <strong>Reserved.</strong> SMTP transport, webhook delivery, and the
+                          notification-events trigger list aren't wired yet — no email or
+                          chat will actually be sent. Values persist for when the delivery
+                          subsystem ships.
+                        </div>
+                      </div>
+
                       <div class="setting-row">
                         <div class="setting-label">
                           <span class="label-title">SMTP host</span>
