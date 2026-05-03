@@ -21,6 +21,13 @@ interface KpiTile {
   hint: string;
   status: Severity;
   icon: string;
+  trend?: number[]; // optional sparkline series — only the failures tile carries one today
+}
+
+interface CategoryTile {
+  category: ApiAuditCategory;
+  label: string;
+  count: number;
 }
 
 interface TopSource {
@@ -78,18 +85,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private apiSources: ApiSource[] = [];
   private apiAssets: ApiAsset[] = [];
   private apiUsers: ApiUser[] = [];
-  private apiRecentEvents: ApiAuditEntry[] = [];
-  private apiFailures: ApiAuditEntry[] = [];
-  failuresTotal = 0; // template-bound on the Failures view header
+  // Wide audit pages we bucket client-side. 1000-row pages are fine for dev
+  // volume; if production volume grows we'd add a `/api/audit/hourly`
+  // aggregation endpoint instead of bigger pages.
+  private apiActivity: ApiAuditEntry[] = []; // all categories, last 24h-ish
+  private apiFailures: ApiAuditEntry[] = []; // outcome=FAILED, last ~200
+  failuresTotal = 0; // template-bound — total all-time, not per-page
 
   // Derived view-state, recomputed in `recompute()` after each fetch and
   // on tz/fmt change.
   overviewKpis: KpiTile[] = [];
   topSources: TopSource[] = [];
-  recentFeed: FeedEvent[] = [];
+  hourlyActivity: number[] = [];
+  hourlyPeak = 0;
   sourceStats: { label: string; count: number; status: Severity }[] = [];
   sourceCards: SourceCard[] = [];
   failures: FeedEvent[] = [];
+  failureCategoryTiles: CategoryTile[] = [];
+  private failures7Day: number[] = [];
 
   // Config-driven formatting inputs cached so we know when to reflow.
   private lastTz = 'UTC';
@@ -126,19 +139,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.error = null;
     forkJoin({
-      sources:       this.sourcesApi.list(),
-      assets:        this.assetsApi.list(),
-      users:         this.usersApi.list(),
-      recentEvents:  this.auditApi.query({ pageSize: 10, page: 1 }),
-      failures:      this.auditApi.query({ pageSize: 10, page: 1, outcome: 'FAILED' }),
+      sources:  this.sourcesApi.list(),
+      assets:   this.assetsApi.list(),
+      users:    this.usersApi.list(),
+      // Activity feed for the 24h hourly chart — wide enough that the bucket
+      // covers a full day at typical dev volume. We filter to the last 24h
+      // client-side; older entries in the page are ignored.
+      activity: this.auditApi.query({ pageSize: 1000, page: 1 }),
+      // Failures power the KPI tile total, the 7-day mini-bar trend, the
+      // category severity tiles, and the Recent Failures list (top 10 of
+      // these). pageSize=200 covers a comfortable 7-day window in dev.
+      failures: this.auditApi.query({ pageSize: 200, page: 1, outcome: 'FAILED' }),
     }).subscribe({
-      next: ({ sources, assets, users, recentEvents, failures }) => {
-        this.apiSources       = sources;
-        this.apiAssets        = assets;
-        this.apiUsers         = users;
-        this.apiRecentEvents  = recentEvents.entries;
-        this.apiFailures      = failures.entries;
-        this.failuresTotal    = failures.total;
+      next: ({ sources, assets, users, activity, failures }) => {
+        this.apiSources    = sources;
+        this.apiAssets     = assets;
+        this.apiUsers      = users;
+        this.apiActivity   = activity.entries;
+        this.apiFailures   = failures.entries;
+        this.failuresTotal = failures.total;
         this.recompute();
         this.loading = false;
       },
@@ -161,12 +180,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.lastTz = tz;
     this.lastFmt = fmt;
 
+    // Compute time-series first so the KPI tile can consume failures7Day.
+    this.hourlyActivity        = this.bucketHourly(this.apiActivity);
+    this.hourlyPeak            = Math.max(0, ...this.hourlyActivity);
+    this.failures7Day          = this.bucketFailuresByDay(this.apiFailures);
+    this.failureCategoryTiles  = this.computeFailureCategories(this.apiFailures);
+
     this.overviewKpis = this.computeKpis();
     this.topSources   = this.computeTopSources();
-    this.recentFeed   = this.apiRecentEvents.map((e) => this.toFeedEvent(e, tz, fmt));
     this.sourceStats  = this.computeSourceStats();
     this.sourceCards  = this.apiSources.map((s) => this.toSourceCard(s, tz, fmt));
-    this.failures     = this.apiFailures.map((e) => this.toFeedEvent(e, tz, fmt));
+    // Recent Failures list shows the 10 most recent regardless of age,
+    // not just the past 7 days.
+    this.failures     = this.apiFailures.slice(0, 10).map((e) => this.toFeedEvent(e, tz, fmt));
   }
 
   private computeKpis(): KpiTile[] {
@@ -213,9 +239,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         value: this.failuresTotal.toString(),
         hint: this.failuresTotal === 0
           ? 'No FAILED audit entries.'
-          : 'See Recent Failures tab.',
+          : 'Last 7 days shown.',
         status: failuresStatus,
         icon: 'alert-triangle-outline',
+        trend: this.failures7Day,
       },
     ];
   }
@@ -301,6 +328,102 @@ export class DashboardComponent implements OnInit, OnDestroy {
         : 'Never synced',
       hasCredentials: s.hasCredentials,
     };
+  }
+
+  // ---- Time-series bucketing --------------------------------------------
+
+  // Bucket the activity feed into 24 hourly counts, oldest → newest. The
+  // rightmost bucket is the current hour. Anything older than 24h or in a
+  // future-skewed clock is dropped.
+  private bucketHourly(events: ApiAuditEntry[]): number[] {
+    const now = new Date();
+    // Anchor at the start of the *current* hour so a steady stream produces
+    // 24 bins regardless of where in the hour we are.
+    const currentHourStart = new Date(now);
+    currentHourStart.setMinutes(0, 0, 0);
+    const bins = new Array(24).fill(0);
+    for (const e of events) {
+      const t = new Date(e.timestamp).getTime();
+      const offset = currentHourStart.getTime() - t;
+      if (offset < 0) continue;             // future-skewed
+      const hoursAgo = Math.floor(offset / (60 * 60 * 1000));
+      if (hoursAgo >= 24) continue;         // outside the window
+      // hoursAgo=0 = current hour = rightmost bin (index 23)
+      bins[23 - hoursAgo] += 1;
+    }
+    return bins;
+  }
+
+  // Bucket failures into 7 daily counts, oldest → newest. Like the hourly
+  // bucket above, this is anchored at start-of-today.
+  private bucketFailuresByDay(events: ApiAuditEntry[]): number[] {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const bins = new Array(7).fill(0);
+    for (const e of events) {
+      const t = new Date(e.timestamp).getTime();
+      const offset = todayStart.getTime() - t;
+      const daysAgo = Math.floor(offset / (24 * 60 * 60 * 1000));
+      // daysAgo=-1 means it landed today (after todayStart). Treat as bin 6.
+      if (daysAgo < -1 || daysAgo >= 7) continue;
+      const idx = daysAgo < 0 ? 6 : 6 - daysAgo;
+      bins[idx] += 1;
+    }
+    return bins;
+  }
+
+  // Five tiles, one per audit category, counting entries from the last 7
+  // days of failures. Categories with zero failures still render so the
+  // row stays a stable shape.
+  private computeFailureCategories(events: ApiAuditEntry[]): CategoryTile[] {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const categories: ApiAuditCategory[] = ['AUTH', 'USER', 'CONFIG', 'DATA', 'SECURITY'];
+    const counts = new Map<ApiAuditCategory, number>(categories.map((c) => [c, 0]));
+    for (const e of events) {
+      const t = new Date(e.timestamp).getTime();
+      if (t < sevenDaysAgo) continue;
+      counts.set(e.category, (counts.get(e.category) || 0) + 1);
+    }
+    return categories.map((c) => ({
+      category: c,
+      label: c.charAt(0) + c.slice(1).toLowerCase(),
+      count: counts.get(c) || 0,
+    }));
+  }
+
+  // ---- Sparkline path generators ----------------------------------------
+
+  // Returns an SVG path for a 100x30 viewBox sparkline. Keep these here
+  // instead of in a directive — three sites use them, all in this file.
+  sparklinePath(values: number[]): string {
+    if (!values.length) return '';
+    const w = 100;
+    const h = 30;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const step = w / Math.max(1, values.length - 1);
+    return values
+      .map((v, i) => {
+        const x = i * step;
+        const y = h - ((v - min) / range) * h;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      })
+      .join(' ');
+  }
+
+  sparklineArea(values: number[]): string {
+    const path = this.sparklinePath(values);
+    if (!path) return '';
+    return `${path} L 100 30 L 0 30 Z`;
+  }
+
+  // True if the trend is non-empty AND has at least one non-zero bin.
+  // Sparklining 24 zeros is just a flat line — the empty hint is more
+  // informative.
+  hasTrendData(values: number[] | undefined): boolean {
+    if (!values?.length) return false;
+    return values.some((v) => v > 0);
   }
 
   // ---- Helpers -----------------------------------------------------------

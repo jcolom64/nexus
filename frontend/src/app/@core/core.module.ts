@@ -16,9 +16,6 @@ import { map, catchError } from 'rxjs/operators';
 
 import { throwIfAlreadyLoaded } from './module-import-guard';
 import { AnalyticsService, SeoService } from './utils';
-import { UserData } from './data/users';
-import { UserService } from './mock/users.service';
-import { MockDataModule } from './mock/mock-data.module';
 import { environment } from '../../environments/environment';
 
 const socialLinks = [
@@ -37,10 +34,6 @@ const socialLinks = [
     target: '_blank',
     icon: 'twitter',
   },
-];
-
-const DATA_SERVICES = [
-  { provide: UserData, useClass: UserService },
 ];
 
 // Resolves the current user's role from the JWT issued by the Nexus API. The
@@ -66,8 +59,6 @@ export class NbSimpleRoleProvider extends NbRoleProvider {
 }
 
 export const NB_CORE_PROVIDERS = [
-  ...MockDataModule.forRoot().providers,
-  ...DATA_SERVICES,
   ...NbAuthModule.forRoot({
 
     strategies: [

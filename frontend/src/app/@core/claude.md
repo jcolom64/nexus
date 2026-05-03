@@ -15,8 +15,6 @@
 │   ├── config-api.service.ts
 │   ├── security-api.service.ts
 │   └── health-api.service.ts
-├── data/                   ← legacy interfaces (UserData, etc.) — phased out
-├── mock/                   ← mock data services — phased out as real APIs land
 └── utils/
     ├── settings.service.ts        ← theme + sidebar persisted in localStorage
     ├── system-config.store.ts     ← BehaviorSubject<ApiSystemConfig | null>
@@ -133,8 +131,9 @@ the column. See lesson #9 in the root CLAUDE.md.
 - **No business logic in components** — push it into a service in `@core`.
 - **No HTTP calls outside `@core/api/`** — components call services, services
   call HTTP.
-- **No mock data services for new code.** The pattern in `mock/` and `data/`
-  predates the real backend; new features should use `api/` services.
+- **No mock data services.** The vestigial `mock/` and `data/` folders from
+  the ngx-admin starter were deleted in Phase 6a; everything reads from
+  `api/` services now.
 - **No leaking secrets to third parties.** If you add a new HTTP interceptor
   that handles tokens, scope it to `environment.apiBase`.
 

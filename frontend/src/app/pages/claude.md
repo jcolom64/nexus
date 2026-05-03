@@ -40,10 +40,14 @@ each view to a real API (Phase 6b will layer WebSocket pushes on top).
 
 - **Overview** — Four KPI tiles (Connected sources, Registered assets,
   Users, Recent failures) computed from `/api/sources`, `/api/assets`,
-  `/api/users`, `/api/audit?outcome=FAILED` respectively. Top-sources
-  bar list is computed by grouping `/api/assets` by `sourceId` and
-  summing `rowCount`. Recent activity feed is the last 10 entries from
-  `/api/audit` with the colour-coded category chip we use elsewhere.
+  `/api/users`, `/api/audit?outcome=FAILED` respectively. The "Recent
+  failures" tile carries a 7-day daily-bar sparkline computed by
+  bucketing the failures page by day; the other three tiles render
+  number-only since their underlying state isn't a meaningful series.
+  A prominent **Platform activity (last 24h)** chart bucket-counts
+  audit entries into 24 hourly bins (peak shown in the header hint).
+  **Top sources by registered rows** groups `/api/assets` by `sourceId`
+  and sums `rowCount` (estimated; freshness = `lastSyncAt`).
 - **Data Sources** — Status-tile counts derived from `/api/sources`
   (connected / degraded / disconnected / stale). "Stale" merges two
   signals: the server's `STALE` status flag and any source whose
@@ -51,22 +55,31 @@ each view to a real API (Phase 6b will layer WebSocket pushes on top).
   name, type, status pill, last-sync timestamp, and credentials state
   — no synthetic latency / throughput / uptime numbers since we don't
   measure those yet.
-- **Recent Failures** (was "Alerts") — `/api/audit?outcome=FAILED`,
-  paged 10 at a time. Empty state is success-coloured ("system is
-  healthy"). The acknowledge/view affordances were dropped since
-  there's no alerting subsystem to ack against.
+- **Recent Failures** (was "Alerts") — Five colour-coded category tiles
+  (AUTH / USER / CONFIG / DATA / SECURITY) at the top, counts derived
+  from the last 7 days of failures. Below that, the last 10 entries
+  from `/api/audit?outcome=FAILED` regardless of age. Empty state is
+  success-coloured ("system is healthy"). The acknowledge/view
+  affordances were dropped since there's no alerting subsystem to
+  ack against.
 
 The synthetic KPIs that lived here pre-6a (Records Ingested 24h, Avg
-Ingest Latency, Error Rate, hourly throughput, per-source throughput
-sparklines) were removed: there's no ingestion subsystem producing them
-and silently displaying invented numbers violates the honest-UI lesson.
-Re-introduce when an ingestion pipeline lands.
+Ingest Latency, Error Rate, per-source throughput sparklines) were
+removed: there's no ingestion subsystem producing them and silently
+displaying invented numbers violates the honest-UI lesson. The 6a
+Platform-activity chart is the honest replacement — it shows a real
+time-series of platform activity rather than fake throughput.
+A pre-6a "Recent activity" feed that duplicated the Audit tab was also
+dropped — Recent Failures is the more useful per-Dashboard cut.
 
-`DashboardComponent` fetches all five endpoints in parallel via
-`forkJoin` on init and on the explicit `Refresh` button. A
-`SystemConfigStore` subscription reformats timestamps in-place when
-the user changes their tz/dateFormat — no refetch needed since we
-hold the raw `apiRecentEvents` / `apiFailures` arrays.
+`DashboardComponent` fetches in parallel via `forkJoin` on init and on
+the explicit `Refresh` button: `/api/sources`, `/api/assets`,
+`/api/users`, `/api/audit?pageSize=1000` (for the hourly bucket), and
+`/api/audit?pageSize=200&outcome=FAILED` (covers ~7 days of failures
+in dev volume). Both audit pages are bucketed client-side; if volume
+grows we'd add a `/api/audit/hourly` aggregation endpoint instead of
+larger pages. A `SystemConfigStore` subscription reformats timestamps
+in-place on tz/dateFormat change.
 
 ### Assets (`assets/`)
 

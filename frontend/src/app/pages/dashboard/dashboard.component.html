@@ -42,14 +42,50 @@
           <span class="kpi-value">{{ kpi.value }}</span>
           <span class="kpi-hint">{{ kpi.hint }}</span>
         </div>
+        <svg
+          class="sparkline"
+          *ngIf="hasTrendData(kpi.trend)"
+          viewBox="0 0 100 30"
+          preserveAspectRatio="none">
+          <path [attr.d]="sparklineArea(kpi.trend!)" class="area"></path>
+          <path [attr.d]="sparklinePath(kpi.trend!)" class="line"></path>
+        </svg>
       </div>
     </div>
+
+    <nb-card class="big-chart-card">
+      <nb-card-header>
+        <span>Platform activity (last 24h)</span>
+        <span class="header-hint" *ngIf="hourlyPeak > 0">
+          peak {{ hourlyPeak }}/hr
+        </span>
+      </nb-card-header>
+      <nb-card-body>
+        <svg
+          *ngIf="hasTrendData(hourlyActivity); else noActivity"
+          class="big-chart"
+          viewBox="0 0 100 30"
+          preserveAspectRatio="none">
+          <path [attr.d]="sparklineArea(hourlyActivity)" class="area"></path>
+          <path [attr.d]="sparklinePath(hourlyActivity)" class="line"></path>
+        </svg>
+        <div class="chart-axis" *ngIf="hasTrendData(hourlyActivity)">
+          <span>24h ago</span><span>18h</span><span>12h</span><span>6h</span><span>now</span>
+        </div>
+        <ng-template #noActivity>
+          <div class="dashboard-empty">
+            <nb-icon icon="activity-outline"></nb-icon>
+            <p>No audit activity in the last 24 hours.</p>
+          </div>
+        </ng-template>
+      </nb-card-body>
+    </nb-card>
 
     <nb-card>
       <nb-card-header>
         <span>Top sources by registered rows</span>
         <span class="header-hint" *ngIf="topSources.length > 0">
-          summed from <code>asset.rowCount</code>
+          estimated from last sync
         </span>
       </nb-card-header>
       <nb-card-body>
@@ -69,30 +105,6 @@
           <div class="dashboard-empty">
             <nb-icon icon="cube-outline"></nb-icon>
             <p>No assets registered yet. Run <strong>Sync</strong> on a connected source.</p>
-          </div>
-        </ng-template>
-      </nb-card-body>
-    </nb-card>
-
-    <nb-card>
-      <nb-card-header>
-        <span>Recent activity</span>
-        <span class="header-hint">last {{ recentFeed.length }} audit events</span>
-      </nb-card-header>
-      <nb-card-body>
-        <ul class="event-feed" *ngIf="recentFeed.length > 0; else noEvents">
-          <li class="event-row" *ngFor="let e of recentFeed; trackBy: trackFeedEvent">
-            <nb-icon [icon]="statusIcon(e.severity)" [status]="e.severity"></nb-icon>
-            <span class="event-category" [attr.data-category]="e.category">{{ e.category }}</span>
-            <span class="event-source">{{ e.source }}</span>
-            <span class="event-msg">{{ e.message }}</span>
-            <span class="event-time">{{ e.displayTime }}</span>
-          </li>
-        </ul>
-        <ng-template #noEvents>
-          <div class="dashboard-empty">
-            <nb-icon icon="activity-outline"></nb-icon>
-            <p>No audit events recorded yet.</p>
           </div>
         </ng-template>
       </nb-card-body>
@@ -148,6 +160,16 @@
 
   <!-- ============================ RECENT FAILURES ============================ -->
   <section class="dashboard-view" *ngIf="activeView === 'failures'">
+    <div class="kpi-row mini">
+      <div
+        class="category-tile"
+        *ngFor="let c of failureCategoryTiles"
+        [attr.data-category]="c.category">
+        <span class="category-count">{{ c.count }}</span>
+        <span class="category-label">{{ c.label }}</span>
+      </div>
+    </div>
+
     <nb-card>
       <nb-card-header>
         <span>Recent failures</span>

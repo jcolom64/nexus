@@ -7,7 +7,6 @@ import { SettingsService, SystemConfigStore } from '../../../@core/utils';
 import { UsersApiService } from '../../../@core/api/users-api.service';
 import { environment } from '../../../../environments/environment';
 
-import { UserData } from '../../../@core/data/users';
 import { catchError, filter, map, switchMap, takeUntil } from 'rxjs/operators';
 import { EMPTY, Subject } from 'rxjs';
 
@@ -39,7 +38,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private readonly PROFILE_STORAGE_KEY = 'nexus-user-profile';
 
   userPictureOnly: boolean = false;
-  user: any;
 
   currentTheme: 'default' | 'dark' = 'default';
   appName = 'Nexus';
@@ -84,7 +82,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
   constructor(private sidebarService: NbSidebarService,
               private menuService: NbMenuService,
               private themeService: NbThemeService,
-              private userService: UserData,
               private breakpointService: NbMediaBreakpointsService,
               private settingsService: SettingsService,
               private authService: NbAuthService,
@@ -126,10 +123,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
         this.profile.role = this.formatRole(me.role);
         this.profileBaseline = { ...this.profile };
       });
-
-    this.userService.getUsers()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((users: any) => this.user = users.nick);
 
     const { xl } = this.breakpointService.getBreakpointsMap();
     this.themeService.onMediaQueryChange()
