@@ -35,17 +35,38 @@ feature module), add a `MENU_ITEM` in `pages-menu.ts`.
 
 ### Dashboard (`dashboard/`)
 
-Three switchable views via a pill selector at the top:
+Three switchable views via a pill selector at the top — Phase 6a wired
+each view to a real API (Phase 6b will layer WebSocket pushes on top).
 
-- **Overview** — KPI tiles (status-colored accent bars + sparklines),
-  big throughput sparkline, top-source bar list, recent events feed.
-- **Data Sources** — Status-tile counts (connected / degraded / disconnected /
-  stale), per-source cards with throughput sparkline + latency + uptime.
-- **Alerts** — Severity tiles, active-alerts list with acknowledge/view
-  buttons.
+- **Overview** — Four KPI tiles (Connected sources, Registered assets,
+  Users, Recent failures) computed from `/api/sources`, `/api/assets`,
+  `/api/users`, `/api/audit?outcome=FAILED` respectively. Top-sources
+  bar list is computed by grouping `/api/assets` by `sourceId` and
+  summing `rowCount`. Recent activity feed is the last 10 entries from
+  `/api/audit` with the colour-coded category chip we use elsewhere.
+- **Data Sources** — Status-tile counts derived from `/api/sources`
+  (connected / degraded / disconnected / stale). "Stale" merges two
+  signals: the server's `STALE` status flag and any source whose
+  `lastSyncAt` is more than an hour old. Slim per-source cards show
+  name, type, status pill, last-sync timestamp, and credentials state
+  — no synthetic latency / throughput / uptime numbers since we don't
+  measure those yet.
+- **Recent Failures** (was "Alerts") — `/api/audit?outcome=FAILED`,
+  paged 10 at a time. Empty state is success-coloured ("system is
+  healthy"). The acknowledge/view affordances were dropped since
+  there's no alerting subsystem to ack against.
 
-All data is mock arrays on `DashboardComponent`. SVG sparklines (no chart
-library). Replaces the original ngx-admin "Hello sandbox" placeholder.
+The synthetic KPIs that lived here pre-6a (Records Ingested 24h, Avg
+Ingest Latency, Error Rate, hourly throughput, per-source throughput
+sparklines) were removed: there's no ingestion subsystem producing them
+and silently displaying invented numbers violates the honest-UI lesson.
+Re-introduce when an ingestion pipeline lands.
+
+`DashboardComponent` fetches all five endpoints in parallel via
+`forkJoin` on init and on the explicit `Refresh` button. A
+`SystemConfigStore` subscription reformats timestamps in-place when
+the user changes their tz/dateFormat — no refetch needed since we
+hold the raw `apiRecentEvents` / `apiFailures` arrays.
 
 ### Assets (`assets/`)
 
@@ -86,7 +107,7 @@ section in CLAUDE.md → architecture / phase plan.
 
 | Tab            | State source                | Phase     |
 |----------------|-----------------------------|-----------|
-| Health         | `HealthApiService` + per-source pills (5c) + `AuditApiService` for events | **Phase H + 5c — done** |
+| Health         | `HealthApiService` + per-source pills (5c) + `LicenseApiService` (Licensing card) | **Phase H + 5c — done** |
 | Account        | `UsersApiService` (real)    | **Phase 1 — done** |
 | User Groups    | `GroupsApiService` (real)              | **Phase 2 — done** |
 | Security       | `SecurityApiService` (singleton row)    | **Phase 4 — done** |
@@ -141,27 +162,29 @@ dashboard. Four blocks:
    from `os.cpus()` / `os.totalmem()` (host-wide; may overstate inside a
    container — note the footnote below the grid).
 
-3. **System Information card** — derived from `systemConfig` + `apiUsers`
-   + `healthMetrics` (the last for `databaseSizeBytes`) + `license`.
-   Surfaces the tenant configuration as a snapshot: app name (config),
-   plan / license key / seats-in-use / expiry (license), locale /
-   timezone / date format (config), DB size (health). License values
-   come from `GET /api/license` — install-time data, separate from
-   `/api/config`. Seats-in-use is `apiUsers.length`, never a stored
-   counter.
+3. **System Information card** — derived from `systemConfig` +
+   `healthMetrics` (the last for `databaseSizeBytes`). Surfaces the
+   tenant configuration as a snapshot: app name (config), locale /
+   timezone / date format (config), DB size (health).
 
-4. **Recent Events card** — most recent N audit-log entries via
-   `AuditApiService.query({ pageSize: N })`. Header has a `Last [N] events`
-   selector (5 / 10 / 25 / 50). `.events-card > nb-card-body` has
-   `max-height: 22rem; overflow-y: auto` so the list scrolls without
-   pushing the grid below. Each row carries a colour-coded category
-   chip (`AUTH`/`USER`/`CONFIG`/`DATA`/`SECURITY`) so a steward can
-   tell at a glance whether the recent activity is auth churn, config
-   edits, or data-catalog work.
+4. **Licensing card** — `GET /api/license`, install-time read-only data.
+   Shows license key (last segment), plan, expiry, seat usage progress
+   bar (`apiUsers.length` / `license.seatsTotal`, derived not stored),
+   and a help line pointing operators at the `npm run license:apply`
+   CLI for rotation. Lives next to System Information in `.info-license-row`
+   on the Health tab — moved here from System → Configuration to keep
+   "what license is installed" with the rest of the read-only system
+   snapshot. Configuration is for things you change; Health is for
+   things you observe.
 
 All timestamps in the Health tab route through `formatInZone` so they
-respect the saved tz/dateFormat (audit log seconds-precision, license
-expiry date-only). See `@core/CLAUDE.md` for the helper.
+respect the saved tz/dateFormat (license expiry date-only). See
+`@core/CLAUDE.md` for the helper.
+
+The Recent Events card that used to occupy slot 4 was removed — it duplicated
+the dedicated System → Audit tab (`/api/audit` paginated query, same data,
+richer filtering). Two surfaces showing the same feed was a maintenance
+liability, not a usability win.
 
 ## Reserved / DEMO indicator pattern
 
@@ -171,7 +194,7 @@ flavors in use:
 | Situation | Treatment | Example |
 |---|---|---|
 | Field with no consumer | `disabled` input + `<span class="label-help">Reserved — …</span>` | `firstDayOfWeek` in System → Configuration → General |
-| Whole card section reserved | `<div class="info-banner">` at top of `.settings-body` explaining values persist but no subsystem reads them | Performance & Limits, Licensing (also display-only) |
+| Whole card section reserved | `<div class="info-banner">` at top of `.settings-body` explaining values persist but no subsystem reads them | Performance & Limits, Notifications & Email (also display-only) |
 | Mock data inside a real-data widget | `class="is-mock"` (dashed border) + `<span class="mock-tag">DEMO</span>` | (No live example — the original Service Status DEMO pills were retired in Phase 5c when real per-source pills replaced them. Re-introduce when a future widget needs to mix mock and real entries.) |
 
 Why: silently storing a setting that doesn't drive behavior surfaces as
@@ -334,7 +357,7 @@ SCSS classes — don't reinvent.
 
 ## Done / queued
 
-- [x] Dashboard (three views, mock data)
+- [x] Dashboard wired to real APIs (sources / assets / users / audit) — Phase 6a
 - [x] Assets (catalog/domains/lineage stub)
 - [x] System → Health (real API+DB pills, per-source pills, CPU/memory, audit-driven Recent Events) — Phase H + 5c
 - [x] System → Account (real API, lockout protection)
@@ -352,4 +375,4 @@ SCSS classes — don't reinvent.
 - [x] Source create/edit modal on Configuration → Data Sources card — Phase 5b follow-up
 - [x] Per-source health pills on Health tab; DEMO pills retired — Phase 5c
 - [ ] Wire Notifications & Email card (still Reserved until delivery subsystem ships)
-- [ ] Live Dashboard via WebSocket — Phase 6
+- [ ] Live Dashboard via WebSocket — Phase 6b

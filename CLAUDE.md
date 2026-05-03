@@ -376,7 +376,8 @@ Phases 1–4 are shipped end-to-end. Subsequent phases:
 | 5a    | `SourcesModule` + `AssetsModule` (metadata only — no connectors yet) | Assets page + Configuration → Data Sources card off mock arrays | done   |
 | 5b    | Postgres connector (test + introspect → auto-populate assets) | Test/Sync buttons on Configuration → Data Sources card; status + lastSyncAt flip from probe results | done   |
 | 5c    | Source-status pills on Health; DEMO pills retired              | Two sections — Platform Services + Data Sources — each pill driven by real state | done   |
-| 6     | WebSocket gateway for live KPIs              | stream Dashboard sparklines             | queued |
+| 6a    | (no new endpoints)                                             | Dashboard wired to real `/api/sources` + `/api/assets` + `/api/users` + `/api/audit`; mocks dropped, "Alerts" → "Recent Failures" | done |
+| 6b    | WebSocket gateway for live KPIs (source-status flips, audit entries) | Push updates to Dashboard cards already wired by 6a — no new view, just live refresh | queued |
 
 ### Phase 4 — singleton settings pattern
 
@@ -512,10 +513,12 @@ table (`licenses`), separate from `SystemConfig`.
   live user count (`apiUsers.length`) instead. The previous orphaned
   column was dropped in the split migration.
 
-Frontend reads via `LicenseApiService` and renders the Licensing card on
-System → Configuration plus the corresponding rows in System → Health
-"System Information". Read-only everywhere; the Configuration tab's
-banner explains how to rotate.
+Frontend reads via `LicenseApiService` and renders a single Licensing
+card on System → Health, alongside the System Information snapshot.
+Read-only; an inline note points operators at the `npm run license:apply`
+CLI for rotation. (The card lived on System → Configuration originally,
+but Configuration is for things you change and License is install-time
+data you observe — collapsed into Health to stop the duplication.)
 
 The roadmap snapshot in [README.md](./README.md#roadmap-snapshot) is the
 source of truth for in-flight items — keep it updated.
@@ -535,4 +538,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03 — Phase 5 complete (5a + 5b + Source modal + 5c).*
+*Last updated: 2026-05-03 — Phase 6a complete (Dashboard wired to real APIs); Phase 6b (WebSocket push) queued.*

@@ -41,6 +41,12 @@
       }
     }
 
+    .dashboard-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
     .view-switcher {
       display: inline-flex;
       align-items: center;
@@ -77,6 +83,45 @@
     }
   }
 
+  .dashboard-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    background: nb-theme(color-danger-transparent-100);
+    color: nb-theme(color-danger-700);
+    border-radius: nb-theme(card-border-radius);
+    font-size: 0.8125rem;
+
+    nb-icon { font-size: 1rem; flex-shrink: 0; }
+  }
+
+  .dashboard-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.75rem 1rem;
+    color: nb-theme(text-hint-color);
+    text-align: center;
+
+    nb-icon {
+      font-size: 1.75rem;
+      opacity: 0.6;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.8125rem;
+      max-width: 30rem;
+    }
+
+    &.success nb-icon {
+      color: nb-theme(color-success-500);
+      opacity: 1;
+    }
+  }
+
   // ============== KPI tiles ==============
   .kpi-row {
     display: grid;
@@ -89,9 +134,9 @@
   }
 
   .kpi-card {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
     padding: 0.875rem 1rem;
     background: nb-theme(background-basic-color-1);
     border: 1px solid nb-theme(border-basic-color-3);
@@ -120,11 +165,16 @@
       gap: 0.125rem;
 
       .kpi-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
         font-size: 0.6875rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: nb-theme(text-hint-color);
+
+        nb-icon { font-size: 0.875rem; }
       }
 
       .kpi-value {
@@ -134,51 +184,14 @@
         line-height: 1.2;
       }
 
-      .kpi-delta {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
+      .kpi-hint {
         font-size: 0.6875rem;
-        font-weight: 600;
         color: nb-theme(text-hint-color);
-
-        nb-icon { font-size: 0.75rem; }
-
-        &.up   { color: nb-theme(color-success-600); }
-        &.down { color: nb-theme(color-danger-600); }
       }
-    }
-
-    .sparkline {
-      width: 100%;
-      height: 32px;
-      display: block;
-
-      .area { fill: nb-theme(color-primary-transparent-200); }
-      .line {
-        fill: none;
-        stroke: nb-theme(color-primary-500);
-        stroke-width: 1.5;
-        stroke-linejoin: round;
-        vector-effect: non-scaling-stroke;
-      }
-    }
-
-    &[data-status="success"] .sparkline {
-      .area { fill: nb-theme(color-success-transparent-200); }
-      .line { stroke: nb-theme(color-success-500); }
-    }
-    &[data-status="warning"] .sparkline {
-      .area { fill: nb-theme(color-warning-transparent-200); }
-      .line { stroke: nb-theme(color-warning-500); }
-    }
-    &[data-status="danger"] .sparkline {
-      .area { fill: nb-theme(color-danger-transparent-200); }
-      .line { stroke: nb-theme(color-danger-500); }
     }
   }
 
-  // ============== Status tiles (Sources & Alerts) ==============
+  // ============== Status tiles (Sources view) ==============
   .status-tile {
     display: flex;
     align-items: center;
@@ -194,20 +207,6 @@
     &[data-status="warning"] { border-left-color: nb-theme(color-warning-500); }
     &[data-status="danger"]  { border-left-color: nb-theme(color-danger-500); }
 
-    nb-icon {
-      font-size: 1.5rem;
-    }
-
-    &[data-status="success"] nb-icon { color: nb-theme(color-success-600); }
-    &[data-status="info"]    nb-icon { color: nb-theme(color-info-600); }
-    &[data-status="warning"] nb-icon { color: nb-theme(color-warning-600); }
-    &[data-status="danger"]  nb-icon { color: nb-theme(color-danger-600); }
-
-    > div {
-      display: flex;
-      flex-direction: column;
-    }
-
     .status-count {
       font-size: 1.5rem;
       font-weight: 700;
@@ -221,23 +220,8 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: nb-theme(text-hint-color);
+      margin-left: auto;
     }
-  }
-
-  // ============== Big chart ==============
-  .dashboard-grid {
-    display: grid;
-    gap: 1rem;
-
-    &.two-col {
-      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    }
-
-    @include media-breakpoint-down(md) {
-      &.two-col { grid-template-columns: 1fr; }
-    }
-
-    nb-card { margin: 0; }
   }
 
   ::ng-deep nb-card-header {
@@ -251,35 +235,14 @@
       font-size: 0.6875rem;
       font-weight: 500;
       color: nb-theme(text-hint-color);
+
+      code {
+        font-size: 0.625rem;
+        padding: 0.0625rem 0.25rem;
+        border-radius: 0.1875rem;
+        background: nb-theme(background-basic-color-2);
+      }
     }
-  }
-
-  .big-chart-card nb-card-body { padding: 1rem; }
-
-  .big-chart {
-    width: 100%;
-    height: 140px;
-    display: block;
-
-    .area {
-      fill: nb-theme(color-primary-transparent-200);
-    }
-    .line {
-      fill: none;
-      stroke: nb-theme(color-primary-500);
-      stroke-width: 2;
-      stroke-linejoin: round;
-      vector-effect: non-scaling-stroke;
-    }
-  }
-
-  .chart-axis {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.375rem;
-    font-size: 0.625rem;
-    color: nb-theme(text-hint-color);
-    font-family: 'SF Mono', Menlo, Consolas, monospace;
   }
 
   // ============== Top-N list ==============
@@ -338,7 +301,7 @@
     }
   }
 
-  // ============== Event feed ==============
+  // ============== Event feed (used by Overview & Recent Failures) ==============
   .event-feed {
     list-style: none;
     margin: 0;
@@ -349,7 +312,7 @@
 
   .event-row {
     display: grid;
-    grid-template-columns: auto auto minmax(120px, 1fr) minmax(0, 3fr);
+    grid-template-columns: auto auto minmax(100px, max-content) minmax(0, 1fr) auto;
     gap: 0.625rem;
     align-items: center;
     padding: 0.5rem 0;
@@ -358,17 +321,29 @@
 
     &:last-child { border-bottom: none; }
 
-    nb-icon { font-size: 1rem; }
+    > nb-icon { font-size: 1rem; }
 
-    .event-time {
-      font-family: 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 0.6875rem;
+    .event-category {
+      font-size: 0.5625rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 0.0625rem 0.375rem;
+      border-radius: 0.625rem;
+      background: nb-theme(background-basic-color-2);
       color: nb-theme(text-hint-color);
+      line-height: 1.4;
+
+      &[data-category="AUTH"]     { background: nb-theme(color-info-transparent-200);    color: nb-theme(color-info-700);    }
+      &[data-category="USER"]     { background: nb-theme(color-primary-transparent-200); color: nb-theme(color-primary-700); }
+      &[data-category="CONFIG"]   { background: nb-theme(color-warning-transparent-200); color: nb-theme(color-warning-700); }
+      &[data-category="DATA"]     { background: nb-theme(color-success-transparent-200); color: nb-theme(color-success-700); }
+      &[data-category="SECURITY"] { background: nb-theme(color-danger-transparent-200);  color: nb-theme(color-danger-700);  }
     }
 
     .event-source {
       font-weight: 600;
       color: nb-theme(text-basic-color);
+      white-space: nowrap;
     }
 
     .event-msg {
@@ -377,9 +352,16 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    .event-time {
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.6875rem;
+      color: nb-theme(text-hint-color);
+      text-align: right;
+    }
   }
 
-  // ============== Source cards ==============
+  // ============== Source cards (slim — name, type, status, last sync) ==============
   .source-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -423,23 +405,9 @@
       }
     }
 
-    .card-chart {
-      width: 100%;
-      height: 60px;
-      display: block;
-
-      .area { fill: nb-theme(color-primary-transparent-200); }
-      .line {
-        fill: none;
-        stroke: nb-theme(color-primary-500);
-        stroke-width: 1.5;
-        vector-effect: non-scaling-stroke;
-      }
-    }
-
     .source-stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 0.5rem;
       margin: 0;
 
@@ -459,14 +427,15 @@
 
       dd {
         margin: 0;
-        font-size: 0.8125rem;
-        font-weight: 600;
+        font-size: 0.75rem;
+        font-weight: 500;
         color: nb-theme(text-basic-color);
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
       }
     }
   }
 
-  // Status pill — same look as Account/Audit tabs
+  // Status pill — same look as Account/Audit tabs.
   .state-pill {
     display: inline-flex;
     align-items: center;
@@ -501,73 +470,6 @@
       background: nb-theme(color-warning-transparent-100);
       color: nb-theme(color-warning-700);
       .state-dot { background: nb-theme(color-warning-500); }
-    }
-  }
-
-  // ============== Alerts ==============
-  .alert-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .alert-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.625rem 0;
-    border-bottom: 1px solid nb-theme(divider-color);
-
-    &:last-child { border-bottom: none; }
-
-    > nb-icon {
-      font-size: 1rem;
-    }
-
-    &[data-severity="danger"]  > nb-icon { color: nb-theme(color-danger-600); }
-    &[data-severity="warning"] > nb-icon { color: nb-theme(color-warning-600); }
-    &[data-severity="info"]    > nb-icon { color: nb-theme(color-info-600); }
-    &[data-severity="success"] > nb-icon { color: nb-theme(color-success-600); }
-
-    .alert-body {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.125rem;
-
-      .alert-title {
-        font-weight: 600;
-        font-size: 0.8125rem;
-        color: nb-theme(text-basic-color);
-      }
-
-      .alert-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        font-size: 0.6875rem;
-        color: nb-theme(text-hint-color);
-
-        .dot { color: nb-theme(text-hint-color); }
-
-        .alert-ack {
-          margin-left: 0.25rem;
-          padding: 0.0625rem 0.375rem;
-          border-radius: 999px;
-          background: nb-theme(background-basic-color-2);
-          color: nb-theme(text-hint-color);
-          font-weight: 600;
-          font-size: 0.625rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-      }
-    }
-
-    .alert-actions {
-      display: flex;
-      gap: 0.25rem;
     }
   }
 }

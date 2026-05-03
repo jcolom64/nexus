@@ -4,85 +4,97 @@
       <h6>Dashboard</h6>
       <span class="dashboard-subtitle">Live snapshot of the Nexus tenant.</span>
     </div>
-    <nav class="view-switcher" role="tablist">
-      <button
-        *ngFor="let v of views"
-        class="view-pill"
-        [class.active]="activeView === v.id"
-        role="tab"
-        (click)="setView(v.id)">
-        <nb-icon [icon]="v.icon"></nb-icon>
-        {{ v.label }}
+    <div class="dashboard-actions">
+      <button nbButton ghost size="small" (click)="refresh()" nbTooltip="Refresh">
+        <nb-icon icon="refresh-outline"></nb-icon>
       </button>
-    </nav>
+      <nav class="view-switcher" role="tablist">
+        <button
+          *ngFor="let v of views"
+          class="view-pill"
+          [class.active]="activeView === v.id"
+          role="tab"
+          (click)="setView(v.id)">
+          <nb-icon [icon]="v.icon"></nb-icon>
+          {{ v.label }}
+        </button>
+      </nav>
+    </div>
   </header>
+
+  <div *ngIf="error" class="dashboard-error">
+    <nb-icon icon="alert-triangle-outline"></nb-icon>
+    <span>{{ error }}</span>
+  </div>
 
   <!-- ============================ OVERVIEW ============================ -->
   <section class="dashboard-view" *ngIf="activeView === 'overview'">
     <div class="kpi-row">
-      <div class="kpi-card" *ngFor="let kpi of overviewKpis" [attr.data-status]="kpi.status">
+      <div
+        class="kpi-card"
+        *ngFor="let kpi of overviewKpis; trackBy: trackKpi"
+        [attr.data-status]="kpi.status">
         <div class="kpi-meta">
-          <span class="kpi-label">{{ kpi.label }}</span>
-          <span class="kpi-value">{{ kpi.value }}</span>
-          <span class="kpi-delta" *ngIf="kpi.delta !== 0" [class.up]="kpi.delta > 0" [class.down]="kpi.delta < 0">
-            <nb-icon [icon]="kpi.delta > 0 ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
-            {{ kpi.delta > 0 ? '+' : '' }}{{ kpi.delta }}% vs. yesterday
+          <span class="kpi-label">
+            <nb-icon [icon]="kpi.icon"></nb-icon>
+            {{ kpi.label }}
           </span>
+          <span class="kpi-value">{{ kpi.value }}</span>
+          <span class="kpi-hint">{{ kpi.hint }}</span>
         </div>
-        <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
-          <path [attr.d]="sparklineArea(kpi.trend)" class="area"></path>
-          <path [attr.d]="sparklinePath(kpi.trend)" class="line"></path>
-        </svg>
       </div>
     </div>
 
-    <div class="dashboard-grid two-col">
-      <nb-card class="big-chart-card">
-        <nb-card-header>
-          <span>Throughput (records / minute, last 24h)</span>
-          <span class="header-hint">Peak: 282 / min</span>
-        </nb-card-header>
-        <nb-card-body>
-          <svg class="big-chart" viewBox="0 0 100 30" preserveAspectRatio="none">
-            <path [attr.d]="sparklineArea(hourlyThroughput)" class="area"></path>
-            <path [attr.d]="sparklinePath(hourlyThroughput)" class="line"></path>
-          </svg>
-          <div class="chart-axis">
-            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>now</span>
-          </div>
-        </nb-card-body>
-      </nb-card>
-
-      <nb-card>
-        <nb-card-header>Top sources by volume</nb-card-header>
-        <nb-card-body>
-          <div class="topn-list">
-            <div class="topn-row" *ngFor="let s of topSources">
-              <div class="topn-meta">
-                <span class="topn-name">{{ s.name }}</span>
-                <span class="topn-type">{{ s.type }}</span>
-              </div>
-              <div class="topn-bar">
-                <span class="bar-fill" [style.width.%]="s.fillPct"></span>
-              </div>
-              <span class="topn-value">{{ formatRecords(s.records) }}</span>
+    <nb-card>
+      <nb-card-header>
+        <span>Top sources by registered rows</span>
+        <span class="header-hint" *ngIf="topSources.length > 0">
+          summed from <code>asset.rowCount</code>
+        </span>
+      </nb-card-header>
+      <nb-card-body>
+        <div class="topn-list" *ngIf="topSources.length > 0; else noTopSources">
+          <div class="topn-row" *ngFor="let s of topSources; trackBy: trackTopSource">
+            <div class="topn-meta">
+              <span class="topn-name">{{ s.name }}</span>
+              <span class="topn-type">{{ s.type }}</span>
             </div>
+            <div class="topn-bar">
+              <span class="bar-fill" [style.width.%]="s.fillPct"></span>
+            </div>
+            <span class="topn-value">{{ formatRecords(s.rowCount) }}</span>
           </div>
-        </nb-card-body>
-      </nb-card>
-    </div>
+        </div>
+        <ng-template #noTopSources>
+          <div class="dashboard-empty">
+            <nb-icon icon="cube-outline"></nb-icon>
+            <p>No assets registered yet. Run <strong>Sync</strong> on a connected source.</p>
+          </div>
+        </ng-template>
+      </nb-card-body>
+    </nb-card>
 
     <nb-card>
-      <nb-card-header>Recent system events</nb-card-header>
+      <nb-card-header>
+        <span>Recent activity</span>
+        <span class="header-hint">last {{ recentFeed.length }} audit events</span>
+      </nb-card-header>
       <nb-card-body>
-        <ul class="event-feed">
-          <li class="event-row" *ngFor="let e of recentFeed">
+        <ul class="event-feed" *ngIf="recentFeed.length > 0; else noEvents">
+          <li class="event-row" *ngFor="let e of recentFeed; trackBy: trackFeedEvent">
             <nb-icon [icon]="statusIcon(e.severity)" [status]="e.severity"></nb-icon>
-            <span class="event-time">{{ e.time }}</span>
+            <span class="event-category" [attr.data-category]="e.category">{{ e.category }}</span>
             <span class="event-source">{{ e.source }}</span>
             <span class="event-msg">{{ e.message }}</span>
+            <span class="event-time">{{ e.displayTime }}</span>
           </li>
         </ul>
+        <ng-template #noEvents>
+          <div class="dashboard-empty">
+            <nb-icon icon="activity-outline"></nb-icon>
+            <p>No audit events recorded yet.</p>
+          </div>
+        </ng-template>
       </nb-card-body>
     </nb-card>
   </section>
@@ -90,14 +102,17 @@
   <!-- ============================ DATA SOURCES ============================ -->
   <section class="dashboard-view" *ngIf="activeView === 'sources'">
     <div class="kpi-row mini">
-      <div class="status-tile" *ngFor="let s of sourceStats" [attr.data-status]="s.status">
+      <div
+        class="status-tile"
+        *ngFor="let s of sourceStats; trackBy: trackSourceStat"
+        [attr.data-status]="s.status">
         <span class="status-count">{{ s.count }}</span>
         <span class="status-label">{{ s.label }}</span>
       </div>
     </div>
 
-    <div class="source-grid">
-      <nb-card class="source-card" *ngFor="let ds of dataSourceCards">
+    <div class="source-grid" *ngIf="sourceCards.length > 0; else noSources">
+      <nb-card class="source-card" *ngFor="let ds of sourceCards; trackBy: trackSourceCard">
         <nb-card-body>
           <header class="source-card-head">
             <div class="source-meta">
@@ -110,66 +125,50 @@
             </span>
           </header>
 
-          <svg class="card-chart" viewBox="0 0 100 30" preserveAspectRatio="none">
-            <path [attr.d]="sparklineArea(ds.trend)" class="area"></path>
-            <path [attr.d]="sparklinePath(ds.trend)" class="line"></path>
-          </svg>
-
           <dl class="source-stats">
             <div>
-              <dt>Throughput</dt>
-              <dd>{{ ds.throughput }}/min</dd>
+              <dt>Last sync</dt>
+              <dd>{{ ds.lastSyncDisplay }}</dd>
             </div>
             <div>
-              <dt>Latency</dt>
-              <dd>{{ ds.latencyMs }} ms</dd>
-            </div>
-            <div>
-              <dt>Uptime</dt>
-              <dd>{{ ds.uptimePct }}%</dd>
+              <dt>Credentials</dt>
+              <dd>{{ ds.hasCredentials ? 'Configured' : 'Not configured' }}</dd>
             </div>
           </dl>
         </nb-card-body>
       </nb-card>
     </div>
+    <ng-template #noSources>
+      <div class="dashboard-empty">
+        <nb-icon icon="hard-drive-outline"></nb-icon>
+        <p>No sources registered yet. Add one in <strong>System &rarr; Configuration &rarr; Data Sources</strong>.</p>
+      </div>
+    </ng-template>
   </section>
 
-  <!-- ============================ ALERTS ============================ -->
-  <section class="dashboard-view" *ngIf="activeView === 'alerts'">
-    <div class="kpi-row mini">
-      <div class="status-tile" *ngFor="let a of alertCounts" [attr.data-status]="a.status">
-        <nb-icon [icon]="statusIcon(a.status)"></nb-icon>
-        <div>
-          <span class="status-count">{{ a.count }}</span>
-          <span class="status-label">{{ a.label }}</span>
-        </div>
-      </div>
-    </div>
-
+  <!-- ============================ RECENT FAILURES ============================ -->
+  <section class="dashboard-view" *ngIf="activeView === 'failures'">
     <nb-card>
       <nb-card-header>
-        <span>Active alerts</span>
-        <span class="header-hint">{{ activeAlerts.length }} total</span>
+        <span>Recent failures</span>
+        <span class="header-hint">{{ failuresTotal }} total · {{ failures.length }} shown</span>
       </nb-card-header>
       <nb-card-body>
-        <ul class="alert-list">
-          <li class="alert-row" *ngFor="let a of activeAlerts" [attr.data-severity]="a.severity">
-            <nb-icon [icon]="statusIcon(a.severity)"></nb-icon>
-            <div class="alert-body">
-              <div class="alert-title">{{ a.title }}</div>
-              <div class="alert-meta">
-                <span>{{ a.source }}</span>
-                <span class="dot">·</span>
-                <span>{{ a.age }} ago</span>
-                <span class="alert-ack" *ngIf="a.acknowledged">acknowledged</span>
-              </div>
-            </div>
-            <div class="alert-actions">
-              <button nbButton ghost size="tiny" *ngIf="!a.acknowledged">Acknowledge</button>
-              <button nbButton ghost size="tiny">View</button>
-            </div>
+        <ul class="event-feed" *ngIf="failures.length > 0; else noFailures">
+          <li class="event-row" *ngFor="let e of failures; trackBy: trackFeedEvent">
+            <nb-icon [icon]="statusIcon(e.severity)" [status]="e.severity"></nb-icon>
+            <span class="event-category" [attr.data-category]="e.category">{{ e.category }}</span>
+            <span class="event-source">{{ e.source }}</span>
+            <span class="event-msg">{{ e.message }}</span>
+            <span class="event-time">{{ e.displayTime }}</span>
           </li>
         </ul>
+        <ng-template #noFailures>
+          <div class="dashboard-empty success">
+            <nb-icon icon="checkmark-circle-2-outline"></nb-icon>
+            <p>No failed audit entries. The system is healthy.</p>
+          </div>
+        </ng-template>
       </nb-card-body>
     </nb-card>
   </section>
