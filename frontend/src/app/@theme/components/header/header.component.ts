@@ -4,6 +4,7 @@ import { NbAuthJWTToken, NbAuthService } from '@nebular/auth';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { SettingsService, SystemConfigStore } from '../../../@core/utils';
+import { UsersApiService } from '../../../@core/api/users-api.service';
 import { environment } from '../../../../environments/environment';
 
 import { UserData } from '../../../@core/data/users';
@@ -72,6 +73,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   profileModalOpen = false;
   profileSaved = false;
+  profileSaving = false;
+  profileError: string | null = null;
   private profileSavedTimer?: number;
 
   localeOptions = ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP', 'pt-BR', 'zh-CN'];
@@ -87,7 +90,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
               private authService: NbAuthService,
               private router: Router,
               private http: HttpClient,
-              private systemConfigStore: SystemConfigStore) {
+              private systemConfigStore: SystemConfigStore,
+              private usersApi: UsersApiService) {
   }
 
   ngOnInit() {
@@ -219,16 +223,45 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   saveProfile(): void {
     if (!this.canSaveProfile()) return;
-    try {
-      localStorage.setItem(this.PROFILE_STORAGE_KEY, JSON.stringify(this.profile));
+
+    // The display name is the only field the backend currently accepts via
+    // `PATCH /users/me` (User.name). Everything else in the modal —
+    // job title, locale/tz/date format, notification toggles, MFA — is
+    // browser-only until those features land. The Reserved info-banner in
+    // the modal explains the asymmetry.
+    const displayNameChanged = this.profile.displayName.trim() !== this.profileBaseline.displayName;
+
+    const persistLocal = () => {
+      try {
+        localStorage.setItem(this.PROFILE_STORAGE_KEY, JSON.stringify(this.profile));
+      } catch {
+        // storage may be full/disabled — nothing actionable
+      }
       this.profileBaseline = { ...this.profile };
+      this.profileSaving = false;
       this.profileSaved = true;
       if (this.profileSavedTimer !== undefined) clearTimeout(this.profileSavedTimer);
       this.profileSavedTimer = window.setTimeout(() => (this.profileSaved = false), 2000);
-    } catch {
-      // ignore storage errors
+      this.profileModalOpen = false;
+    };
+
+    if (!displayNameChanged) {
+      persistLocal();
+      return;
     }
-    this.profileModalOpen = false;
+
+    this.profileSaving = true;
+    this.profileError = null;
+    this.usersApi.updateMe({ name: this.profile.displayName.trim() }).subscribe({
+      next: (me) => {
+        this.profile.displayName = me.name;
+        persistLocal();
+      },
+      error: (err) => {
+        this.profileError = err?.error?.message || err?.message || 'Failed to save profile';
+        this.profileSaving = false;
+      },
+    });
   }
 
   resetProfile(): void {

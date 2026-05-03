@@ -71,13 +71,22 @@ a local `UserProfile` object hydrated from `localStorage`
 whenever the auth token changes (the JWT carries email/role but not
 displayName, so we fetch).
 
-Fields: display name, email, job title, role (read-only), preferences
-(locale/tz/date format), notifications (digest cadence + per-event toggles),
-security (password change stub, MFA toggle).
+Save behaviour is hybrid:
 
-Save persists the local profile back to localStorage. **It does not yet
-sync to the API** — when the backend grows a `/api/users/me` endpoint, wire
-it here.
+- **Display name** is the only field that round-trips to the server. On
+  save, if it changed, the modal calls `usersApi.updateMe({ name })` →
+  `PATCH /api/users/me`. localStorage is then written for everything else.
+- **Email** is read-only in the modal. `PATCH /users/me` deliberately
+  doesn't accept email changes (privilege-escalation vector); admins can
+  change a user's email via `PATCH /users/:id` from System → Account.
+- **Job title, locale, timezone, date format, email digest, notification
+  toggles, MFA toggle** stay in localStorage. They aren't read by any
+  feature today and there's no `UserPreferences` model; an info-banner
+  in the modal labels them honestly so the user knows what syncs.
+
+When a `UserPreferences` model lands, those fields move out of
+localStorage and through `usersApi.updateMe` (or a sibling
+`PATCH /users/me/preferences`).
 
 ### Theme toggle
 
@@ -201,5 +210,5 @@ to react to sidebar state.
 - [x] System full-bleed page positioned via theme tokens
 - [x] Header app-name bound to `SystemConfigStore` (Phase 4)
 - [x] Footer clock driven by `systemConfig` tz + dateFormat (Phase 4)
-- [ ] Wire profile modal to `PATCH /api/users/:id` instead of localStorage
+- [x] Wire profile display-name to `PATCH /api/users/me` (other fields still localStorage-only pending a `UserPreferences` model)
 - [ ] Mobile breakpoint review — currently desktop-tuned

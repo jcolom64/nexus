@@ -38,6 +38,13 @@ export interface UpdateUserPayload {
   groupIds?: string[];
 }
 
+// Self-edit payload — strict subset of UpdateUserPayload. Mirrors the
+// server's UpdateMeDto: name only. Role/state/email/password/group changes
+// for self are not allowed via this path.
+export interface UpdateMePayload {
+  name?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UsersApiService {
   private readonly base = `${environment.apiBase}/users`;
@@ -58,6 +65,11 @@ export class UsersApiService {
 
   update(id: string, payload: UpdateUserPayload): Observable<ApiUser> {
     return this.http.patch<ApiUser>(`${this.base}/${id}`, payload);
+  }
+
+  // Self-edit. Backed by `PATCH /users/me` — accepts `name` only.
+  updateMe(payload: UpdateMePayload): Observable<ApiUser> {
+    return this.http.patch<ApiUser>(`${this.base}/me`, payload);
   }
 
   remove(id: string): Observable<void> {

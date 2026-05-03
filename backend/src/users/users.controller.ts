@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 
 function ipFrom(req: Request): string {
   const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
@@ -26,6 +27,31 @@ export class UsersController {
   @Get()
   list() {
     return this.users.findAll();
+  }
+
+  // Self-edit. Declared BEFORE `:id` routes so Express's matcher picks the
+  // literal "me" path over the parameter. Any role can edit their own name;
+  // no role/state/email/password/group changes are accepted here — those
+  // are still admin-only via `PATCH /users/:id`.
+  @Patch('me')
+  async updateMe(
+    @Body() dto: UpdateMeDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const updated = await this.users.update(actor.id, dto);
+    await this.audit.record({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action: 'UPDATE',
+      category: 'USER',
+      resource: updated.email,
+      resourceType: 'User',
+      source: ipFrom(req),
+      outcome: 'SUCCESS',
+      metadata: { changedFields: Object.keys(dto), self: true },
+    });
+    return updated;
   }
 
   @Get(':id')

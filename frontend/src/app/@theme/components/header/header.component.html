@@ -67,10 +67,13 @@
             <span class="field-label">Display name</span>
             <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="profile.displayName" />
           </label>
-          <label class="field">
+          <div class="field readonly">
             <span class="field-label">Email</span>
-            <input nbInput fullWidth fieldSize="small" type="email" [(ngModel)]="profile.email" />
-          </label>
+            <div class="readonly-value">
+              <span>{{ profile.email }}</span>
+              <span class="readonly-hint">Self-edit not supported — ask an admin via System &rarr; Account.</span>
+            </div>
+          </div>
           <label class="field">
             <span class="field-label">Job title</span>
             <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="profile.jobTitle" />
@@ -84,6 +87,20 @@
           </div>
         </div>
       </section>
+
+      <div *ngIf="profileError" class="profile-error">
+        <nb-icon icon="alert-triangle-outline"></nb-icon>
+        <span>{{ profileError }}</span>
+      </div>
+
+      <div class="profile-reserved-note" role="note">
+        <nb-icon icon="info-outline"></nb-icon>
+        <div>
+          <strong>Display name</strong> syncs to the server. Job title and the
+          fields below (preferences, notifications, MFA) are kept in your
+          browser only until those features ship.
+        </div>
+      </div>
 
       <section class="profile-section">
         <h6 class="section-title">Preferences</h6>
@@ -183,10 +200,10 @@
           nbButton
           status="primary"
           size="small"
-          [disabled]="!profileDirty || !canSaveProfile()"
+          [disabled]="!profileDirty || !canSaveProfile() || profileSaving"
           (click)="saveProfile()">
           <nb-icon icon="save-outline"></nb-icon>
-          Save
+          {{ profileSaving ? 'Saving…' : 'Save' }}
         </button>
       </div>
     </footer>

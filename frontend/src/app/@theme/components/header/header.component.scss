@@ -378,6 +378,43 @@
     flex-direction: column;
     gap: 1.25rem;
 
+    .profile-reserved-note,
+    .profile-error {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: nb-theme(card-border-radius);
+      font-size: 0.75rem;
+      line-height: 1.4;
+
+      nb-icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+        margin-top: 0.0625rem;
+      }
+    }
+
+    .profile-reserved-note {
+      background: nb-theme(color-info-transparent-100);
+      border: 1px solid nb-theme(color-info-transparent-300);
+      color: nb-theme(text-basic-color);
+
+      nb-icon {
+        color: nb-theme(color-info-600);
+      }
+    }
+
+    .profile-error {
+      background: nb-theme(color-danger-transparent-100);
+      border: 1px solid nb-theme(color-danger-transparent-300);
+      color: nb-theme(text-basic-color);
+
+      nb-icon {
+        color: nb-theme(color-danger-600);
+      }
+    }
+
     .profile-section {
       display: flex;
       flex-direction: column;
