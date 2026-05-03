@@ -495,7 +495,7 @@
                   may overstate available CPU and memory relative to the cgroup limit.
                 </p>
 
-                <section class="health-section info-events-row">
+                <section class="health-section info-license-row">
                   <nb-card class="info-card">
                     <nb-card-header>System Information</nb-card-header>
                     <nb-card-body>
@@ -508,41 +508,42 @@
                     </nb-card-body>
                   </nb-card>
 
-                  <nb-card class="events-card">
+                  <nb-card class="license-card">
                     <nb-card-header>
-                      <span>Recent Events</span>
-                      <div class="events-controls">
-                        <span class="control-label">Last</span>
-                        <nb-select
-                          size="tiny"
-                          [(selected)]="recentEventsCount"
-                          (selectedChange)="onRecentEventsCountChange()">
-                          <nb-option *ngFor="let n of recentEventsCountOptions" [value]="n">{{ n }}</nb-option>
-                        </nb-select>
-                        <span class="control-label">events</span>
-                      </div>
+                      <span>Licensing</span>
+                      <span *ngIf="license" class="strength-pill" [attr.data-strength]="license.plan === 'enterprise' ? 'strong' : (license.plan === 'professional' ? 'moderate' : 'weak')">{{ license.plan }}</span>
                     </nb-card-header>
                     <nb-card-body>
-                      <div *ngIf="recentEventsError" class="warning-banner">
+                      <div *ngIf="licenseError" class="warning-banner">
                         <nb-icon icon="alert-triangle-outline"></nb-icon>
-                        <span>{{ recentEventsError }}</span>
+                        <span>{{ licenseError }}</span>
                       </div>
-                      <nb-list *ngIf="!recentEventsError">
-                        <nb-list-item *ngFor="let event of recentEvents" class="event-item">
-                          <nb-icon [icon]="statusIcon(event.severity)" [status]="event.severity"></nb-icon>
-                          <div class="event-body">
-                            <div class="event-line">
-                              <span class="event-category" [attr.data-category]="event.category">{{ event.category }}</span>
-                              <span class="event-source">{{ event.source }}</span>
-                              <span class="event-time">{{ eventTimestamp(event.timestamp) }}</span>
-                            </div>
-                            <div class="event-message">{{ event.message }}</div>
-                          </div>
-                        </nb-list-item>
-                        <div *ngIf="!recentEventsLoading && recentEvents.length === 0" class="events-empty">
-                          No audit events yet.
+
+                      <dl class="info-list">
+                        <dt>License key</dt>
+                        <dd><code class="license-key">{{ maskedLicenseKey() || '—' }}</code></dd>
+
+                        <dt>Plan</dt>
+                        <dd>{{ license ? planLabel(license.plan) : '—' }}</dd>
+
+                        <dt>Expires</dt>
+                        <dd>{{ licenseExpiresDisplay() }}</dd>
+                      </dl>
+
+                      <div class="license-seats">
+                        <div class="license-seats-head">
+                          <span class="license-seats-label">Seat usage</span>
+                          <span class="license-seats-count">{{ apiUsers.length }} of {{ license ? license.seatsTotal : '—' }}</span>
                         </div>
-                      </nb-list>
+                        <nb-progress-bar [value]="seatsPercent" [status]="seatsStatus" size="tiny"></nb-progress-bar>
+                      </div>
+
+                      <p class="license-note">
+                        <nb-icon icon="info-outline"></nb-icon>
+                        Read-only. License is applied at install time via
+                        <code>npm&nbsp;run&nbsp;license:apply</code>; rotation and seat
+                        changes are handled out-of-band.
+                      </p>
                     </nb-card-body>
                   </nb-card>
                 </section>
@@ -1167,7 +1168,7 @@
                 </div>
 
                 <div class="settings-grid">
-                  <section class="settings-card">
+                  <section class="settings-card card-general">
                     <header>
                       <nb-icon icon="settings-2-outline"></nb-icon>
                       <h6>General</h6>
@@ -1243,7 +1244,7 @@
                     </div>
                   </section>
 
-                  <section class="settings-card">
+                  <section class="settings-card card-sources">
                     <header>
                       <nb-icon icon="hard-drive-outline"></nb-icon>
                       <h6>Data Sources</h6>
@@ -1367,7 +1368,7 @@
                     </div>
                   </section>
 
-                  <section class="settings-card">
+                  <section class="settings-card card-notif">
                     <header>
                       <nb-icon icon="email-outline"></nb-icon>
                       <h6>Notifications &amp; Email</h6>
@@ -1461,7 +1462,7 @@
                     </div>
                   </section>
 
-                  <section class="settings-card">
+                  <section class="settings-card card-perf">
                     <header>
                       <nb-icon icon="activity-outline"></nb-icon>
                       <h6>Performance &amp; Limits</h6>
@@ -1532,80 +1533,6 @@
                     </div>
                   </section>
 
-                  <section class="settings-card">
-                    <header>
-                      <nb-icon icon="award-outline"></nb-icon>
-                      <h6>Licensing</h6>
-                      <span *ngIf="license" class="strength-pill" [attr.data-strength]="license.plan === 'enterprise' ? 'strong' : (license.plan === 'professional' ? 'moderate' : 'weak')">{{ license.plan }}</span>
-                    </header>
-                    <div class="settings-body">
-                      <div class="info-banner" role="note">
-                        <nb-icon icon="info-outline"></nb-icon>
-                        <div>
-                          Read-only. License is applied at install time via
-                          <code>npm&nbsp;run&nbsp;license:apply</code>; rotation and seat
-                          changes are handled out-of-band.
-                        </div>
-                      </div>
-
-                      <div *ngIf="licenseError" class="warning-banner">
-                        <nb-icon icon="alert-triangle-outline"></nb-icon>
-                        <span>{{ licenseError }}</span>
-                      </div>
-
-                      <div class="setting-row">
-                        <div class="setting-label">
-                          <span class="label-title">License key</span>
-                          <span class="label-help">Last segment shown.</span>
-                        </div>
-                        <div class="setting-control">
-                          <code class="license-key">{{ maskedLicenseKey() || '—' }}</code>
-                        </div>
-                      </div>
-
-                      <div class="setting-row">
-                        <div class="setting-label">
-                          <span class="label-title">Plan</span>
-                        </div>
-                        <div class="setting-control">
-                          <span class="role-pill">{{ license ? planLabel(license.plan) : '—' }}</span>
-                        </div>
-                      </div>
-
-                      <div class="setting-row stacked">
-                        <div class="setting-label">
-                          <span class="label-title">Seat usage</span>
-                          <span class="label-help">
-                            {{ apiUsers.length }} of {{ license ? license.seatsTotal : '—' }} seats in use.
-                          </span>
-                        </div>
-                        <div class="setting-control">
-                          <nb-progress-bar [value]="seatsPercent" [status]="seatsStatus" size="tiny"></nb-progress-bar>
-                        </div>
-                      </div>
-
-                      <div class="setting-row">
-                        <div class="setting-label">
-                          <span class="label-title">Expires</span>
-                        </div>
-                        <div class="setting-control">
-                          <span class="readonly-value">{{ licenseExpiresDisplay() }}</span>
-                        </div>
-                      </div>
-
-                      <div class="setting-row">
-                        <div class="setting-label">
-                          <span class="label-title">Need more seats?</span>
-                        </div>
-                        <div class="setting-control">
-                          <button nbButton ghost size="small">
-                            <nb-icon icon="external-link-outline"></nb-icon>
-                            Contact sales
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
                 </div>
               </div>
               <div class="account-tab audit-tab" *ngIf="activeTab === 'audit'">

@@ -279,8 +279,8 @@
             }
           }
 
-          .info-events-row {
-            grid-template-columns: minmax(240px, 1fr) minmax(280px, 2fr);
+          .info-license-row {
+            grid-template-columns: minmax(240px, 1fr) minmax(280px, 1fr);
 
             @include media-breakpoint-down(md) {
               grid-template-columns: 1fr;
@@ -310,106 +310,97 @@
               }
             }
 
-            // Events card has both a title and the count selector in the header.
-            // Default nb-card-header isn't flex; force horizontal layout.
-            .events-card > nb-card-header {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 0.5rem;
-            }
+            // License card: header has title + plan strength pill, body has
+            // a small dl-list, a seat-usage progress block, and a help line.
+            .license-card {
+              > nb-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+              }
 
-            // Scroll the body so the header stays visible while the list grows
-            // (up to 50 entries when the user picks the largest count option).
-            .events-card > nb-card-body {
-              max-height: 22rem;
-              overflow-y: auto;
-            }
+              > nb-card-body {
+                display: flex;
+                flex-direction: column;
+                gap: 0.875rem;
+              }
 
-            .events-controls {
-              display: inline-flex;
-              align-items: center;
-              gap: 0.375rem;
-              font-size: 0.75rem;
-              color: nb-theme(text-hint-color);
+              .strength-pill {
+                padding: 0.125rem 0.5rem;
+                border-radius: 999px;
+                font-size: 0.625rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                background: nb-theme(background-basic-color-3);
+                color: nb-theme(text-hint-color);
 
-              nb-select {
+                &[data-strength="strong"]   { background: nb-theme(color-success-transparent-100); color: nb-theme(color-success-700); }
+                &[data-strength="moderate"] { background: nb-theme(color-warning-transparent-100); color: nb-theme(color-warning-700); }
+                &[data-strength="weak"]     { background: nb-theme(color-danger-transparent-100);  color: nb-theme(color-danger-700);  }
+              }
+
+              .license-key {
                 font-size: 0.75rem;
-              }
-            }
-
-            .events-empty {
-              padding: 1rem;
-              text-align: center;
-              font-size: 0.75rem;
-              color: nb-theme(text-hint-color);
-            }
-
-            .event-item {
-              display: flex;
-              align-items: flex-start;
-              gap: 0.75rem;
-              padding: 0.625rem 0;
-
-              nb-icon {
-                font-size: 1rem;
-                flex-shrink: 0;
-                margin-top: 0.125rem;
+                color: nb-theme(text-basic-color);
               }
 
-              .event-body {
-                flex: 1;
-                min-width: 0;
+              .license-seats {
+                display: flex;
+                flex-direction: column;
+                gap: 0.375rem;
 
-                .event-line {
+                .license-seats-head {
                   display: flex;
-                  justify-content: flex-start;
+                  justify-content: space-between;
                   align-items: baseline;
-                  gap: 0.5rem;
-                  flex-wrap: wrap;
-
-                  .event-category {
-                    font-size: 0.5625rem;
-                    font-weight: 700;
-                    letter-spacing: 0.06em;
-                    padding: 0.0625rem 0.375rem;
-                    border-radius: 0.625rem;
-                    background: nb-theme(background-basic-color-2);
-                    color: nb-theme(text-hint-color);
-                    flex-shrink: 0;
-                    line-height: 1.4;
-
-                    &[data-category="AUTH"]     { background: nb-theme(color-info-transparent-200);    color: nb-theme(color-info-700);    }
-                    &[data-category="USER"]     { background: nb-theme(color-primary-transparent-200); color: nb-theme(color-primary-700); }
-                    &[data-category="CONFIG"]   { background: nb-theme(color-warning-transparent-200); color: nb-theme(color-warning-700); }
-                    &[data-category="DATA"]     { background: nb-theme(color-success-transparent-200); color: nb-theme(color-success-700); }
-                    &[data-category="SECURITY"] { background: nb-theme(color-danger-transparent-200);  color: nb-theme(color-danger-700);  }
-                  }
-
-                  .event-source {
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    color: nb-theme(text-basic-color);
-                    flex: 1;
-                    min-width: 0;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                  }
-
-                  .event-time {
-                    font-size: 0.6875rem;
-                    color: nb-theme(text-hint-color);
-                    font-family: 'SF Mono', Menlo, Consolas, monospace;
-                    flex-shrink: 0;
-                  }
-                }
-
-                .event-message {
                   font-size: 0.75rem;
-                  color: nb-theme(text-hint-color);
-                  margin-top: 0.125rem;
+
+                  .license-seats-label {
+                    color: nb-theme(text-hint-color);
+                    font-weight: 500;
+                  }
+
+                  .license-seats-count {
+                    color: nb-theme(text-basic-color);
+                    font-family: 'SF Mono', Menlo, Consolas, monospace;
+                  }
                 }
+              }
+
+              .license-note {
+                display: flex;
+                gap: 0.375rem;
+                margin: 0;
+                font-size: 0.75rem;
+                color: nb-theme(text-hint-color);
+
+                nb-icon {
+                  font-size: 0.875rem;
+                  flex-shrink: 0;
+                  margin-top: 0.0625rem;
+                }
+
+                code {
+                  font-size: 0.7rem;
+                  padding: 0.0625rem 0.25rem;
+                  border-radius: 0.1875rem;
+                  background: nb-theme(background-basic-color-2);
+                }
+              }
+
+              .warning-banner {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.375rem;
+                padding: 0.5rem 0.625rem;
+                border-radius: nb-theme(card-border-radius);
+                background: nb-theme(color-danger-transparent-100);
+                color: nb-theme(color-danger-700);
+                font-size: 0.75rem;
+
+                nb-icon { font-size: 0.875rem; flex-shrink: 0; }
               }
             }
           }
@@ -1231,8 +1222,30 @@
 
     .settings-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 1rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      // Two-column layout: General + Performance & Limits stack on the left,
+      // Data Sources fills the right column at full height of the stack,
+      // Notifications & Email spans both columns below.
+      grid-template-areas:
+        "general sources"
+        "perf    sources"
+        "notif   notif";
+      align-items: start;
+
+      @include media-breakpoint-down(md) {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "general"
+          "perf"
+          "sources"
+          "notif";
+      }
+
+      .card-general { grid-area: general; }
+      .card-perf    { grid-area: perf;    }
+      .card-sources { grid-area: sources; }
+      .card-notif   { grid-area: notif;   }
     }
 
     .settings-card {

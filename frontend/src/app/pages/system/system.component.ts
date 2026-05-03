@@ -39,14 +39,6 @@ interface ServiceStatus {
   label: string;
 }
 
-interface SystemEvent {
-  timestamp: string;
-  severity: HealthStatus;
-  source: string;
-  message: string;
-  category: ApiAuditCategory;
-}
-
 type UserRole = 'Administrator' | 'Manager' | 'User' | 'Auditor';
 type UserState = 'active' | 'inactive' | 'suspended' | 'invited';
 
@@ -338,22 +330,15 @@ export class SystemComponent implements OnInit {
 
   // Snapshot of System → Configuration values, surfaced here so the Health
   // tab reflects the live tenant configuration without duplicating it in DB
-  // columns. License + locale + timezone + format come from `systemConfig`;
-  // seat usage is derived from the real user count, matching the Licensing
-  // card on the Configuration page.
+  // columns. License lives in its own card on this same tab; locale /
+  // timezone / format come from `systemConfig`; database size from
+  // `/health/metrics`.
   get systemInfo(): { label: string; value: string }[] {
     const dbSize = this.healthMetrics
       ? this.formatBytes(this.healthMetrics.databaseSizeBytes)
       : '—';
-    const seatsValue = this.license
-      ? `${this.apiUsers.length} of ${this.license.seatsTotal}`
-      : '—';
     return [
       { label: 'Application',   value: this.systemConfig.appNameOverride || 'Nexus' },
-      { label: 'Plan',          value: this.license ? this.planLabel(this.license.plan) : '—' },
-      { label: 'License key',   value: this.maskedLicenseKey() || '—' },
-      { label: 'Seats in use',  value: seatsValue },
-      { label: 'Expires',       value: this.licenseExpiresDisplay() },
       { label: 'Locale',        value: this.systemConfig.defaultLocale },
       { label: 'Timezone',      value: this.systemConfig.defaultTimezone },
       { label: 'Date format',   value: this.systemConfig.dateFormat },
@@ -506,60 +491,6 @@ export class SystemComponent implements OnInit {
     this.loadAudit();
   }
 
-  // Recent Events surfaces the last N audit-log entries — the only real
-  // event stream we have today. The `messageQueue`/`scheduler`/`deploy`
-  // events that used to live here were placeholders for systems we don't
-  // yet operate; once those exist we can mix them in.
-  recentEvents: SystemEvent[] = [];
-  recentEventsCount = 10;
-  readonly recentEventsCountOptions: number[] = [5, 10, 25, 50];
-  recentEventsLoading = false;
-  recentEventsError: string | null = null;
-
-  loadRecentEvents(): void {
-    this.recentEventsLoading = true;
-    this.recentEventsError = null;
-    this.auditApi
-      .query({ pageSize: this.recentEventsCount, page: 1 })
-      .subscribe({
-        next: (page) => {
-          this.recentEvents = page.entries.map((e) => this.toRecentEvent(e));
-          this.recentEventsLoading = false;
-        },
-        error: (err) => {
-          this.recentEventsError = err?.error?.message || err?.message || 'Failed to load events';
-          this.recentEventsLoading = false;
-        },
-      });
-  }
-
-  onRecentEventsCountChange(): void {
-    this.loadRecentEvents();
-  }
-
-  // Map an audit entry onto the row shape the Recent Events template
-  // already understands. SUCCESS lands as 'info' to avoid drowning the
-  // list in green; warnings and failures stay loud.
-  private toRecentEvent(e: ApiAuditEntry): SystemEvent {
-    const severity: HealthStatus =
-      e.outcome === 'FAILED' ? 'danger'
-        : e.outcome === 'WARNING' ? 'warning'
-        : 'info';
-    return {
-      timestamp: e.timestamp,
-      severity,
-      source: e.actorName || e.actorEmail,
-      message: `${e.action.toLowerCase()} ${e.resourceType.toLowerCase()}: ${e.resource}`,
-      category: e.category,
-    };
-  }
-
-  eventTimestamp(iso: string): string {
-    const tz = this.systemConfig.defaultTimezone || 'UTC';
-    const fmt = this.systemConfig.dateFormat || 'YYYY-MM-DD';
-    return formatInZone(new Date(iso), tz, fmt, { seconds: true });
-  }
-
   systemRoleOptions: SystemRole[] = ['system-admin', 'account-viewer', 'license-override', 'user-viewer'];
 
   systemRoleDescriptions: Record<SystemRole, string> = {
@@ -688,7 +619,6 @@ export class SystemComponent implements OnInit {
     this.loadSystemConfig();
     this.loadApiUsers();
     this.loadHealthCheck();
-    this.loadRecentEvents();
     this.loadLicense();
     this.loadDataSources();
   }
@@ -1184,7 +1114,6 @@ export class SystemComponent implements OnInit {
     // pills reflect current state, not whatever was true at app load.
     if (tab === 'health') {
       this.loadHealthCheck();
-      this.loadRecentEvents();
     }
   }
 
