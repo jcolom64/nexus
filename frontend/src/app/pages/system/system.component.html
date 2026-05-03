@@ -122,6 +122,129 @@
   </div>
 </div>
 
+<!-- Add / Edit data source modal — Configuration → Data Sources card -->
+<div class="modal-overlay" *ngIf="sourceModalOpen">
+  <div class="modal-dialog">
+    <header class="modal-header">
+      <nb-icon icon="hard-drive-outline"></nb-icon>
+      <h6>{{ editingSource ? 'Edit Data Source' : 'Add a New Data Source' }}</h6>
+      <button nbButton ghost size="tiny" class="modal-close" (click)="closeSourceModal()" aria-label="Close">
+        <nb-icon icon="close-outline"></nb-icon>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <p class="modal-intro">
+        Register an external data system. Phase 5b only includes a working PostgreSQL connector;
+        other types persist their config but cannot be probed yet.
+      </p>
+
+      <div *ngIf="sourceFormError" class="warning-banner">
+        <nb-icon icon="alert-triangle-outline"></nb-icon>
+        <span>{{ sourceFormError }}</span>
+      </div>
+
+      <label class="form-field">
+        <span class="field-label">
+          Source Name <span class="required">*</span>
+          <span class="field-counter">{{ sourceForm.name.length }} / {{ sourceNameMax }}</span>
+        </span>
+        <input
+          nbInput fullWidth fieldSize="small" type="text"
+          placeholder="e.g. orders-db"
+          [maxlength]="sourceNameMax"
+          [(ngModel)]="sourceForm.name" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Type</span>
+        <nb-select size="small" [(selected)]="sourceForm.type" (selectedChange)="onSourceTypeChange()">
+          <nb-option *ngFor="let t of sourceTypeOptions" [value]="t.value">{{ t.label }}</nb-option>
+        </nb-select>
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Description</span>
+        <textarea
+          nbInput fullWidth fieldSize="small" rows="2"
+          placeholder="Short description shown in the catalog"
+          [(ngModel)]="sourceForm.description"></textarea>
+      </label>
+
+      <div class="form-field-row">
+        <label class="form-field">
+          <span class="field-label">Host</span>
+          <input nbInput fullWidth fieldSize="small" type="text" placeholder="localhost" [(ngModel)]="sourceForm.host" />
+        </label>
+        <label class="form-field narrow">
+          <span class="field-label">Port</span>
+          <input nbInput fullWidth fieldSize="small" type="number" min="1" max="65535" [(ngModel)]="sourceForm.port" />
+        </label>
+      </div>
+
+      <label class="form-field">
+        <span class="field-label">Database</span>
+        <input nbInput fullWidth fieldSize="small" type="text" placeholder="nexus" [(ngModel)]="sourceForm.database" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Username</span>
+        <input nbInput fullWidth fieldSize="small" type="text" autocomplete="off" [(ngModel)]="sourceForm.username" />
+      </label>
+
+      <label class="form-field" *ngIf="!sourceFormClearPassword">
+        <span class="field-label">
+          Password
+          <span class="field-counter" *ngIf="editingSource && editingSource.hasCredentials">
+            credentials configured — leave blank to keep
+          </span>
+        </span>
+        <input nbInput fullWidth fieldSize="small" type="password" autocomplete="new-password" [(ngModel)]="sourceForm.password" />
+        <button
+          *ngIf="editingSource && editingSource.hasCredentials"
+          type="button"
+          nbButton ghost size="tiny"
+          class="form-field-action"
+          (click)="sourceFormClearPassword = true; sourceForm.password = ''">
+          <nb-icon icon="trash-2-outline"></nb-icon>
+          Clear stored password
+        </button>
+      </label>
+
+      <div class="form-field" *ngIf="sourceFormClearPassword">
+        <span class="field-label">Password</span>
+        <div class="warning-banner">
+          <nb-icon icon="alert-triangle-outline"></nb-icon>
+          <span>
+            Stored password will be cleared on save.
+            <button type="button" nbButton ghost size="tiny" (click)="sourceFormClearPassword = false">undo</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button
+        *ngIf="editingSource"
+        nbButton ghost status="danger" size="small"
+        [disabled]="sourceFormSaving"
+        (click)="deleteSource()">
+        <nb-icon icon="trash-2-outline"></nb-icon>
+        Delete
+      </button>
+      <span class="modal-foot-spacer"></span>
+      <button nbButton ghost size="small" (click)="closeSourceModal()">Cancel</button>
+      <button
+        nbButton status="success" size="small"
+        [disabled]="!canSaveSource()"
+        (click)="saveSource()">
+        <nb-icon icon="checkmark-outline"></nb-icon>
+        {{ sourceFormSaving ? 'Saving…' : (editingSource ? 'Save changes' : 'Create source') }}
+      </button>
+    </footer>
+  </div>
+</div>
+
 <!-- Add / Edit user modal — Account tab -->
 <div class="modal-overlay" *ngIf="userModalOpen">
   <div class="modal-dialog">
@@ -1116,16 +1239,30 @@
                       <div class="setting-row stacked">
                         <div class="setting-label">
                           <span class="label-title">Connected sources</span>
-                          <span class="label-help">Read-only summary; manage connections in Sources &rarr; Connections.</span>
+                          <span class="label-help">Click a source to edit; use <strong>Add source</strong> to register a new one.</span>
                         </div>
                         <div class="setting-control">
+                          <div class="datasource-toolbar">
+                            <button nbButton size="tiny" status="primary" (click)="openAddSource()">
+                              <nb-icon icon="plus-outline"></nb-icon>
+                              Add source
+                            </button>
+                          </div>
+                          <div *ngIf="dataSourcesError" class="warning-banner">
+                            <nb-icon icon="alert-triangle-outline"></nb-icon>
+                            <span>{{ dataSourcesError }}</span>
+                          </div>
                           <div class="datasource-list">
                             <ng-container *ngFor="let ds of dataSources">
                               <div class="datasource-row">
-                                <div class="ds-meta">
+                                <button
+                                  type="button"
+                                  class="ds-meta as-button"
+                                  (click)="openEditSource(ds.id)"
+                                  title="Edit source">
                                   <span class="ds-name">{{ ds.name }}</span>
                                   <span class="ds-type">{{ ds.type }}</span>
-                                </div>
+                                </button>
                                 <span class="state-pill" [attr.data-state]="dataSourceStatusPillState(ds.status)">
                                   <span class="state-dot"></span>
                                   {{ dataSourceStatusLabel(ds.status) }}

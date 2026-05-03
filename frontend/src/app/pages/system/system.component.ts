@@ -253,6 +253,41 @@ export class SystemComponent implements OnInit {
   // summary or error). Cleared when a new action starts.
   dataSourceActions: Record<string, { busy: boolean; ok?: boolean; message?: string }> = {};
 
+  // ---- Source create/edit modal (Phase 5b follow-up) ----
+  // The list of source types supported by the API + their default ports.
+  // Used to populate the Type select and to suggest a port when the user
+  // changes the type during creation.
+  readonly sourceTypeOptions: { value: ApiSourceType; label: string; defaultPort: number | null }[] = [
+    { value: 'POSTGRES',  label: 'PostgreSQL',         defaultPort: 5432 },
+    { value: 'MYSQL',     label: 'MySQL',              defaultPort: 3306 },
+    { value: 'MONGODB',   label: 'MongoDB',            defaultPort: 27017 },
+    { value: 'REDIS',     label: 'Redis',              defaultPort: 6379 },
+    { value: 'KAFKA',     label: 'Kafka',              defaultPort: 9092 },
+    { value: 'SNOWFLAKE', label: 'Snowflake',          defaultPort: 443 },
+    { value: 'S3',        label: 'S3 (object store)',  defaultPort: null },
+    { value: 'REST_API',  label: 'REST API',           defaultPort: null },
+  ];
+
+  sourceModalOpen = false;
+  editingSource: ApiSource | null = null;
+  sourceForm = {
+    name: '',
+    type: 'POSTGRES' as ApiSourceType,
+    description: '',
+    host: '',
+    port: null as number | null,
+    database: '',
+    username: '',
+    password: '',
+  };
+  sourceFormError: string | null = null;
+  sourceFormSaving = false;
+  // Set true when the user wants to wipe a stored credential. Purely
+  // a frontend toggle — the patch payload sends `password: ''` to signal
+  // "clear" to the server-side service.
+  sourceFormClearPassword = false;
+  readonly sourceNameMax = 128;
+
   themeOptions: { value: ThemeChoice; label: string }[] = [
     { value: 'default', label: 'Default (light)' },
     { value: 'dark',    label: 'Dark' },
@@ -725,6 +760,133 @@ export class SystemComponent implements OnInit {
           ok: false,
           message: err?.error?.message || err?.message || 'Test failed',
         };
+      },
+    });
+  }
+
+  // ---- Source modal API ----
+
+  openAddSource(): void {
+    this.editingSource = null;
+    this.sourceForm = {
+      name: '',
+      type: 'POSTGRES',
+      description: '',
+      host: '',
+      port: 5432,
+      database: '',
+      username: '',
+      password: '',
+    };
+    this.sourceFormClearPassword = false;
+    this.sourceFormError = null;
+    this.sourceModalOpen = true;
+  }
+
+  openEditSource(id: string): void {
+    this.sourcesApi.get(id).subscribe({
+      next: (s) => {
+        this.editingSource = s;
+        this.sourceForm = {
+          name: s.name,
+          type: s.type,
+          description: s.description,
+          host: s.host ?? '',
+          port: s.port,
+          database: s.database ?? '',
+          username: s.username ?? '',
+          // Never echoed by the API — leave the input empty and use
+          // `hasCredentials` to communicate "a password is stored".
+          password: '',
+        };
+        this.sourceFormClearPassword = false;
+        this.sourceFormError = null;
+        this.sourceModalOpen = true;
+      },
+      error: (err) => {
+        this.dataSourcesError = err?.error?.message || err?.message || 'Failed to load source';
+      },
+    });
+  }
+
+  closeSourceModal(): void {
+    this.sourceModalOpen = false;
+    this.editingSource = null;
+  }
+
+  // Quality-of-life: when the user changes Type during creation, snap
+  // the port to the canonical default for that type (skip if they've
+  // already typed something custom or we're editing).
+  onSourceTypeChange(): void {
+    if (this.editingSource) return;
+    const opt = this.sourceTypeOptions.find((o) => o.value === this.sourceForm.type);
+    if (opt) this.sourceForm.port = opt.defaultPort;
+  }
+
+  canSaveSource(): boolean {
+    return this.sourceForm.name.trim().length > 0 && !this.sourceFormSaving;
+  }
+
+  saveSource(): void {
+    if (!this.canSaveSource()) return;
+    this.sourceFormSaving = true;
+    this.sourceFormError = null;
+
+    // Build the patch carefully: empty strings for optional text fields
+    // become `undefined` (= "don't change") rather than empty values, with
+    // the explicit exception of `password === ''` which signals "clear
+    // the stored credential" when `sourceFormClearPassword` is set.
+    const f = this.sourceForm;
+    const payload = {
+      name: f.name.trim(),
+      type: f.type,
+      description: f.description,
+      host: f.host || undefined,
+      port: f.port ?? undefined,
+      database: f.database || undefined,
+      username: f.username || undefined,
+      password: this.sourceFormClearPassword
+        ? ''
+        : (f.password ? f.password : undefined),
+    };
+
+    const obs = this.editingSource
+      ? this.sourcesApi.update(this.editingSource.id, payload)
+      : this.sourcesApi.create(payload as { name: string; type: ApiSourceType });
+
+    obs.subscribe({
+      next: () => {
+        this.sourceFormSaving = false;
+        this.sourceModalOpen = false;
+        this.editingSource = null;
+        this.loadDataSources();
+      },
+      error: (err) => {
+        this.sourceFormError = err?.error?.message || err?.message || 'Failed to save source';
+        this.sourceFormSaving = false;
+      },
+    });
+  }
+
+  deleteSource(): void {
+    if (!this.editingSource) return;
+    const target = this.editingSource;
+    const ok = window.confirm(
+      `Delete source "${target.name}"? This will remove ${target.assetCount} asset${target.assetCount === 1 ? '' : 's'} and any lineage edges connected to them. This cannot be undone.`,
+    );
+    if (!ok) return;
+    this.sourceFormSaving = true;
+    this.sourceFormError = null;
+    this.sourcesApi.remove(target.id).subscribe({
+      next: () => {
+        this.sourceFormSaving = false;
+        this.sourceModalOpen = false;
+        this.editingSource = null;
+        this.loadDataSources();
+      },
+      error: (err) => {
+        this.sourceFormError = err?.error?.message || err?.message || 'Failed to delete source';
+        this.sourceFormSaving = false;
       },
     });
   }
