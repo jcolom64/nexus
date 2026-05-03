@@ -57,4 +57,7 @@ Open http://localhost:4204 and log in with one of the seeded users
 
 ## License
 
-Not yet chosen — TODO.
+[MIT](./LICENSE). The frontend is derived from
+[akveo's ngx-admin](https://github.com/akveo/ngx-admin) starter (also MIT);
+their copyright notice is preserved in `LICENSE` per the MIT attribution
+requirement.
