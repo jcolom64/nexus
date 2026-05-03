@@ -142,10 +142,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       sources:  this.sourcesApi.list(),
       assets:   this.assetsApi.list(),
       users:    this.usersApi.list(),
-      // Activity feed for the 24h hourly chart — wide enough that the bucket
-      // covers a full day at typical dev volume. We filter to the last 24h
-      // client-side; older entries in the page are ignored.
-      activity: this.auditApi.query({ pageSize: 1000, page: 1 }),
+      // Activity feed for the 24h hourly chart. Backend caps pageSize at
+      // 500 (audit-query.dto.ts), which is plenty for a day's worth of
+      // activity at dev volume. If volume ever pushes past that we'd add
+      // a `/api/audit/hourly` aggregation endpoint instead of growing
+      // the page further.
+      activity: this.auditApi.query({ pageSize: 500, page: 1 }),
       // Failures power the KPI tile total, the 7-day mini-bar trend, the
       // category severity tiles, and the Recent Failures list (top 10 of
       // these). pageSize=200 covers a comfortable 7-day window in dev.

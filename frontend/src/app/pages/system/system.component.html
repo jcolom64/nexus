@@ -467,18 +467,8 @@
                             size="tiny">
                           </nb-progress-bar>
                         </div>
-                        <div class="split-row">
-                          <span class="split-label">System</span>
-                          <span class="split-value">{{ formatBytes(healthMetrics.system.memoryUsedBytes) }}</span>
-                          <nb-progress-bar
-                            class="split-bar"
-                            [value]="systemMemoryPercent()"
-                            [status]="percentStatus(systemMemoryPercent())"
-                            size="tiny">
-                          </nb-progress-bar>
-                        </div>
                         <div class="metric-detail">
-                          of {{ formatBytes(healthMetrics.system.memoryTotalBytes) }} host total
+                          of {{ formatBytes(healthMetrics.system.memoryTotalBytes) }} host RAM
                         </div>
                       </ng-container>
                     </nb-card-body>

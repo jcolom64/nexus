@@ -74,12 +74,13 @@ dropped — Recent Failures is the more useful per-Dashboard cut.
 
 `DashboardComponent` fetches in parallel via `forkJoin` on init and on
 the explicit `Refresh` button: `/api/sources`, `/api/assets`,
-`/api/users`, `/api/audit?pageSize=1000` (for the hourly bucket), and
+`/api/users`, `/api/audit?pageSize=500` (for the hourly bucket — 500
+is the backend cap in `audit-query.dto.ts`), and
 `/api/audit?pageSize=200&outcome=FAILED` (covers ~7 days of failures
 in dev volume). Both audit pages are bucketed client-side; if volume
-grows we'd add a `/api/audit/hourly` aggregation endpoint instead of
-larger pages. A `SystemConfigStore` subscription reformats timestamps
-in-place on tz/dateFormat change.
+ever pushes past 500/day we'd add a `/api/audit/hourly` aggregation
+endpoint rather than raise the cap. A `SystemConfigStore` subscription
+reformats timestamps in-place on tz/dateFormat change.
 
 ### Assets (`assets/`)
 
@@ -168,12 +169,18 @@ dashboard. Four blocks:
    Object Storage) and their `class="is-mock"` styling were retired in
    Phase 5c — real per-source pills replaced them.
 
-2. **Metrics grid** — two `.split-card`s (CPU, Memory). Each shows an
-   App row and a System row, both as labelled progress bars. Driven by
-   `GET /api/health/metrics`. App values come from `process.cpuUsage()`
-   / `process.memoryUsage().rss` (always accurate); system values come
-   from `os.cpus()` / `os.totalmem()` (host-wide; may overstate inside a
-   container — note the footnote below the grid).
+2. **Metrics grid** — two `.split-card`s (CPU, Memory) driven by
+   `GET /api/health/metrics`.
+   - **CPU** shows two rows (App + System). App is `process.cpuUsage()`
+     sampled over ~100ms — accurate everywhere. System is `os.cpus()`
+     idle/total deltas — host-wide, may overstate inside a container,
+     but bounded 0–100% so the bar is at least readable.
+   - **Memory** shows only the App row (`process.memoryUsage().rss`)
+     plus a "of N GB host RAM" caption. The "System used" row was
+     dropped: `os.freemem()` excludes file-cache RAM on macOS / Linux,
+     so the bar pinned near 100% even on healthy hosts. A red bar that
+     never goes green just trains stewards to ignore it. See lesson
+     #12 in root CLAUDE.md.
 
 3. **System Information card** — derived from `systemConfig` +
    `healthMetrics` (the last for `databaseSizeBytes`). Surfaces the

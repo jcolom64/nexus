@@ -325,9 +325,25 @@ UI — it bypasses the user's chosen format.
 
 Node's `os.cpus()` / `os.totalmem()` report **the host**, not the cgroup
 limit, in containers. `process.cpuUsage()` / `process.memoryUsage().rss`
-are accurate everywhere. The Health page shows both with a footnote
-about the host-vs-cgroup caveat — the app row is always truthful, the
-system row may overstate.
+are accurate everywhere. The Health page CPU card shows both (App row
+is always truthful; System row may overstate inside a container — the
+footnote below the grid says so), but the System row is at least
+bounded 0–100% so the bar reads sensibly.
+
+**Memory is messier and we dropped the System row.** `os.freemem()`
+returns *truly free* RAM, not "available" — it excludes pages held by
+the OS as file cache. On macOS the cache is so aggressive that
+`memoryUsedBytes / memoryTotalBytes` is almost always > 90%, even on
+a healthy machine; Linux is less extreme but the same shape. A red
+bar that never goes green just trains stewards to ignore the
+indicator (anti-pattern of honest-UI lesson #10). The right number
+is `MemAvailable` from `/proc/meminfo` (Linux) or a `vm_stat` parse
+(macOS), neither of which Node's `os` module exposes — implementing
+that is platform-dependent and well past the value of the bar. So
+the Memory card now shows only the App row plus a static "of N GB
+host RAM" caption. Same call we'd make again for any future "system
+%" metric where the OS-reported denominator doesn't match user
+intuition.
 
 For "what disk does Nexus use", the honest answer for a stateless API
 is **Postgres**: `pg_database_size(current_database())`. Don't fake an

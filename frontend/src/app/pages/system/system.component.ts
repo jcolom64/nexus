@@ -1176,17 +1176,18 @@ export class SystemComponent implements OnInit {
 
   // Memory % of system total — used by the Memory card's "App" bar so it's
   // expressed against the same denominator as the System bar (apples-to-apples).
+  // Memory ratio for the App row of the Health Memory card. The denominator
+  // is host total RAM — meaningful absolute scale ("Nexus is using 1.2 GB of
+  // a 36 GB host"). The "System used" half-row was dropped: `os.freemem()`
+  // on macOS / Linux excludes file-cache RAM, which makes the bar pinned
+  // near 100% even when the host is healthy. See lesson #12 in root
+  // CLAUDE.md.
   appMemoryPercent(): number {
     if (!this.healthMetrics) return 0;
     const total = this.healthMetrics.system.memoryTotalBytes || 1;
     return (this.healthMetrics.app.memoryRssBytes / total) * 100;
   }
 
-  systemMemoryPercent(): number {
-    if (!this.healthMetrics) return 0;
-    const total = this.healthMetrics.system.memoryTotalBytes || 1;
-    return (this.healthMetrics.system.memoryUsedBytes / total) * 100;
-  }
 
   // Map a 0–100 percentage to the same status colours used elsewhere.
   percentStatus(percent: number): HealthStatus {
