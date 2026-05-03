@@ -1,5 +1,7 @@
 # Nexus
 
+[![CI](https://github.com/jcolom64/nexus/actions/workflows/ci.yml/badge.svg)](https://github.com/jcolom64/nexus/actions/workflows/ci.yml)
+
 A data-concentrator admin interface — Angular dashboard backed by a NestJS API.
 Pulls heterogeneous data sources (databases, message streams, object stores, REST
 partners) into a single pane of glass with a data catalog, system administration,
