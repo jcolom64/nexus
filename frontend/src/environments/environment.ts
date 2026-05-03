@@ -11,4 +11,8 @@
 export const environment = {
   production: false,
   apiBase: 'http://localhost:3001/api',
+  // WebSocket gateway URL — separate from apiBase because NestJS's
+  // setGlobalPrefix('api') doesn't apply to WS gateways; the path comes
+  // from @WebSocketGateway({ path: '/events' }) verbatim.
+  wsBase: 'ws://localhost:3001/events',
 };

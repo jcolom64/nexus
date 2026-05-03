@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AssetDomain, Prisma, Source, SourceStatus, SourceType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsService } from '../events/events.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { UpdateSourceDto } from './dto/update-source.dto';
 import { decryptSecret, encryptSecret } from './connectors/credentials';
@@ -33,7 +34,17 @@ export interface SyncSourceResult {
 
 @Injectable()
 export class SourcesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+  ) {}
+
+  // Emit a `source.status` event with the freshly-loaded SourceResponse so
+  // subscribed clients can patch their local state without round-tripping.
+  private async emitStatus(id: string): Promise<void> {
+    const fresh = await this.findOne(id);
+    this.events.emit('source.status', fresh);
+  }
 
   async findAll(): Promise<SourceResponse[]> {
     const rows = await this.prisma.source.findMany({
@@ -131,6 +142,10 @@ export class SourcesService {
     const status: SourceStatus = result.ok ? SourceStatus.CONNECTED : SourceStatus.DISCONNECTED;
     await this.prisma.source.update({ where: { id }, data: { status } });
 
+    // Push live so any open Dashboard / Health tab flips the pill without
+    // a manual refresh.
+    await this.emitStatus(id);
+
     return {
       ok: result.ok,
       latencyMs: result.latencyMs,
@@ -158,6 +173,7 @@ export class SourcesService {
         where: { id },
         data: { status: SourceStatus.DISCONNECTED },
       });
+      await this.emitStatus(id);
       return {
         ok: false,
         status: SourceStatus.DISCONNECTED,
@@ -204,6 +220,8 @@ export class SourcesService {
         lastSyncAt: new Date(),
       },
     });
+
+    await this.emitStatus(id);
 
     return {
       ok: true,

@@ -185,7 +185,37 @@ for the live list.
 | 3     | `audit` (event ingestion + paginated query)    |
 | 4     | `system-config`, `security-policy`             |
 | 5     | `sources`, `assets`, connector framework       |
-| 6     | WebSocket gateway for live dashboard streams   |
+| 6b    | `events` (WebSocket gateway, in-process pub/sub mediator) |
+
+## Events module (Phase 6b)
+
+`src/events/` contains a single `@Global()` module with two pieces:
+
+- `EventsService` — in-process pub/sub. Application code calls
+  `emit(type, payload)` whenever something interesting happens. No
+  knowledge of WebSockets.
+- `EventsGateway` — `@WebSocketGateway({ path: '/events' })` using
+  the plain `ws` adapter (`@nestjs/platform-ws`). Subscribes to
+  `EventsService.events$` once at `afterInit` and broadcasts to
+  every authenticated client.
+
+Auth is per-socket: the first frame must be
+`{ type: 'auth', token: '<JWT>' }`. The gateway calls `JwtService.verify`
+(borrowed from `AuthModule`) and either marks the socket authed or
+closes it. Sockets that don't auth within 5s are closed with code
+4001; bad tokens close with 4002.
+
+**Integration pattern.** Don't import the gateway into your service
+to broadcast. Inject `EventsService` and call `emit('your.event', payload)`.
+Wired today:
+
+- `SourcesService.test/sync` → `source.status` (full `SourceResponse`
+  after the status flip).
+- `AuditService.record` → `audit` (the freshly-created `AuditEntry`).
+
+Adding a new event type: pick a dotted-path name, emit from the service
+that owns the state. The gateway forwards every emission untouched —
+no per-type wiring needed.
 
 ## Done / queued
 
@@ -196,9 +226,9 @@ for the live list.
 - [x] Seed script for the six mock users
 - [x] `accounts` module (read-only) + `groups` module (CRUD with member emails) — Phase 2
 - [x] `audit` module — Phase 3 — append-only `AuditEntry` with `record()` API and paginated query. Ingestion wired into `auth.login/logout` and the `users` / `groups` CRUD controllers.
-- [ ] `system-config` + `security-policy` — Phase 4
-- [ ] `sources` + `assets` + connector framework — Phase 5
-- [ ] WebSocket gateway — Phase 6
+- [x] `system-config` + `security` modules — Phase 4
+- [x] `sources` + `assets` + Postgres connector — Phase 5
+- [x] `events` WebSocket gateway + per-service emit wiring — Phase 6b
 - [ ] Token denylist for forced logout (when needed)
 - [ ] E2E tests (Jest + supertest)
 - [ ] Production Dockerfile + multi-stage build

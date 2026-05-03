@@ -105,6 +105,39 @@ pushes the response to the subject so saves propagate live.
 Pattern to copy when adding any other "one row that drives chrome
 elsewhere" config (e.g. branding overrides, feature gates).
 
+## EventsClient (`utils/events.client.ts`)
+
+Phase 6b — singleton WebSocket client. Connects to
+`environment.wsBase` (separate from `apiBase` because NestJS's
+`/api` prefix doesn't apply to WS gateways) and authenticates by
+sending `{ type: 'auth', token }` as the first frame.
+
+- **Auth-gated open.** Subscribes to `NbAuthService.onTokenChange()`;
+  opens a fresh socket when a valid JWT lands, tears it down on
+  logout. Same pattern as `SystemConfigStore`.
+- **Reconnect with backoff.** Exponential 1s → 30s on unexpected
+  close; reset to 1s on a successful `auth.ok` reply. Don't add
+  reconnect logic in components.
+- **Two streams.** `events$` is the firehose; `on<T>(type)` returns
+  a pre-filtered slice for components that care about one event type.
+- **Wire shape**: `{ type: string, payload: T, timestamp: ISO }` —
+  mirrors backend's `EventMessage<T>` in `events/events.service.ts`.
+  Keep them in sync.
+- **Live event types today**:
+  - `auth.ok` — server confirms handshake. Internal use only; the
+    client resets backoff on it.
+  - `source.status` — payload is a full `ApiSource` after a
+    test/sync flip. Subscribers: `DashboardComponent` (KPI tile +
+    source cards + status counts), `SystemComponent` (Health pills
+    + Configuration → Data Sources card).
+  - `audit` — payload is a freshly-created `ApiAuditEntry`.
+    Subscribers: `DashboardComponent` (Platform Activity 24h
+    bucket + Recent Failures view + Failures KPI tile).
+
+Components patch their local cache and recompute — never refetch as a
+side-effect of a push. The explicit Refresh button is the only refetch
+path.
+
 ## Timestamp formatting (`utils/date-format.ts`)
 
 `formatInZone(date, timezone, pattern, options?)` is the canonical helper
@@ -153,4 +186,5 @@ the column. See lesson #9 in the root CLAUDE.md.
 - [x] `LicenseApiService` (read-only — install-time data; written by backend CLI)
 - [x] `SourcesApiService`, `AssetsApiService` (CRUD over the metadata layer) — Phase 5a
 - [x] `SourcesApiService.test/.sync` (Postgres connector — probe + introspect) — Phase 5b
-- [ ] Per-source health pills on Health tab — Phase 5c
+- [x] Per-source health pills on Health tab — Phase 5c
+- [x] `EventsClient` (live updates over WebSocket) — Phase 6b

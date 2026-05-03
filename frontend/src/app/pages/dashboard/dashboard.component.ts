@@ -10,7 +10,7 @@ import {
   ApiAuditEntry,
   AuditApiService,
 } from '../../@core/api/audit-api.service';
-import { SystemConfigStore, formatInZone } from '../../@core/utils';
+import { EventsClient, SystemConfigStore, formatInZone } from '../../@core/utils';
 
 type Severity = 'success' | 'info' | 'warning' | 'danger';
 type SourceStatus = 'connected' | 'degraded' | 'disconnected' | 'stale';
@@ -114,6 +114,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly usersApi: UsersApiService,
     private readonly auditApi: AuditApiService,
     private readonly configStore: SystemConfigStore,
+    private readonly eventsClient: EventsClient,
   ) {}
 
   ngOnInit(): void {
@@ -128,6 +129,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.lastFmt = fmt;
       this.recompute();
     });
+
+    // Phase 6b — incremental updates over WebSocket. Each handler patches
+    // the local cache and then calls recompute(); we never refetch as a
+    // side-effect of a push (refresh() is the only refetch entry point).
+    this.eventsClient.on<ApiSource>('source.status').pipe(takeUntil(this.destroy$))
+      .subscribe((msg) => this.applySourceStatus(msg.payload));
+    this.eventsClient.on<ApiAuditEntry>('audit').pipe(takeUntil(this.destroy$))
+      .subscribe((msg) => this.applyAuditEntry(msg.payload));
+  }
+
+  // ---- Live event handlers ---------------------------------------------
+
+  // Patch the matching source in `apiSources` (or insert if missing) and
+  // recompute. Reassigns the array so any downstream OnPush component
+  // watching via reference identity can react.
+  private applySourceStatus(updated: ApiSource): void {
+    const idx = this.apiSources.findIndex((s) => s.id === updated.id);
+    if (idx >= 0) {
+      this.apiSources = [
+        ...this.apiSources.slice(0, idx),
+        updated,
+        ...this.apiSources.slice(idx + 1),
+      ];
+    } else {
+      this.apiSources = [...this.apiSources, updated];
+    }
+    this.recompute();
+  }
+
+  // Prepend an incoming audit entry to both the activity bucket source and
+  // the failures source (if it's a FAILED entry). Cap the held arrays so
+  // memory doesn't grow without bound under a busy stream.
+  private applyAuditEntry(entry: ApiAuditEntry): void {
+    this.apiActivity = [entry, ...this.apiActivity].slice(0, 500);
+    if (entry.outcome === 'FAILED') {
+      this.apiFailures = [entry, ...this.apiFailures].slice(0, 200);
+      this.failuresTotal += 1;
+    }
+    this.recompute();
   }
 
   ngOnDestroy(): void {

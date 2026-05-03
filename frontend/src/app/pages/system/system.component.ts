@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, forkJoin } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ApiRole, ApiState, ApiUser, UsersApiService } from '../../@core/api/users-api.service';
 import {
   ApiAccount,
@@ -29,7 +30,7 @@ import {
   ApiHealthMetrics,
   HealthApiService,
 } from '../../@core/api/health-api.service';
-import { SettingsService, SystemConfigStore, formatInZone } from '../../@core/utils';
+import { EventsClient, SettingsService, SystemConfigStore, formatInZone } from '../../@core/utils';
 
 type HealthStatus = 'success' | 'warning' | 'danger' | 'info';
 
@@ -188,7 +189,9 @@ interface SecuritySettings {
   templateUrl: './system.component.html',
   styleUrls: ['./system.component.scss'],
 })
-export class SystemComponent implements OnInit {
+export class SystemComponent implements OnInit, OnDestroy {
+
+  private readonly destroy$ = new Subject<void>();
 
   readonly defaultSystemConfig: SystemConfig = {
     appNameOverride: 'Nexus',
@@ -611,6 +614,7 @@ export class SystemComponent implements OnInit {
     private healthApi: HealthApiService,
     private licenseApi: LicenseApiService,
     private sourcesApi: SourcesApiService,
+    private eventsClient: EventsClient,
   ) {}
 
   ngOnInit(): void {
@@ -621,6 +625,35 @@ export class SystemComponent implements OnInit {
     this.loadHealthCheck();
     this.loadLicense();
     this.loadDataSources();
+
+    // Phase 6b — patch the data-sources list in place when the server pushes
+    // a status change (test/sync). Drives both the Configuration → Data
+    // Sources card *and* the Health tab's per-source pills, since both
+    // render off `dataSources`.
+    this.eventsClient.on<ApiSource>('source.status').pipe(takeUntil(this.destroy$))
+      .subscribe((msg) => this.applySourceStatus(msg.payload));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // Replace the matching data-source row with a freshly-mapped DataSource.
+  // We reassign the array (not mutate) so any *ngFor with trackBy on
+  // identity reflows correctly.
+  private applySourceStatus(updated: ApiSource): void {
+    const idx = this.dataSources.findIndex((s) => s.id === updated.id);
+    const next = this.toDataSource(updated);
+    if (idx >= 0) {
+      this.dataSources = [
+        ...this.dataSources.slice(0, idx),
+        next,
+        ...this.dataSources.slice(idx + 1),
+      ];
+    } else {
+      this.dataSources = [...this.dataSources, next];
+    }
   }
 
   loadDataSources(): void {

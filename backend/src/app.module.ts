@@ -12,6 +12,7 @@ import { HealthModule } from './health/health.module';
 import { LicenseModule } from './license/license.module';
 import { SourcesModule } from './sources/sources.module';
 import { AssetsModule } from './assets/assets.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AssetsModule } from './assets/assets.module';
     LicenseModule,
     SourcesModule,
     AssetsModule,
+    EventsModule,
   ],
 })
 export class AppModule {}

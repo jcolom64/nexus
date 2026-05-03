@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AuditAction, AuditCategory, AuditEntry, AuditOutcome, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsService } from '../events/events.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
 
 export interface RecordAuditInput {
@@ -27,15 +28,20 @@ export interface AuditPage {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsService,
+  ) {}
 
   /**
    * Record a single audit event. Never throws — audit failures should not
-   * cascade and break the action being audited.
+   * cascade and break the action being audited. The created entry is also
+   * pushed onto the WebSocket event bus so live Dashboard surfaces (Recent
+   * Failures, Platform Activity, KPI counts) update without a refresh.
    */
   async record(input: RecordAuditInput): Promise<void> {
     try {
-      await this.prisma.auditEntry.create({
+      const entry = await this.prisma.auditEntry.create({
         data: {
           actorId: input.actorId ?? null,
           actorEmail: input.actorEmail,
@@ -49,6 +55,7 @@ export class AuditService {
           metadata: (input.metadata ?? null) as Prisma.InputJsonValue,
         },
       });
+      this.events.emit('audit', entry);
     } catch (e) {
       // Don't break the caller — log and move on.
       this.logger.warn(`Failed to record audit event: ${(e as Error).message}`);

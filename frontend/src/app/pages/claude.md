@@ -35,8 +35,10 @@ feature module), add a `MENU_ITEM` in `pages-menu.ts`.
 
 ### Dashboard (`dashboard/`)
 
-Three switchable views via a pill selector at the top — Phase 6a wired
-each view to a real API (Phase 6b will layer WebSocket pushes on top).
+Three switchable views via a pill selector at the top. Phase 6a wired
+each view to a real API; Phase 6b layered live WebSocket pushes on top
+so KPIs / charts / lists update without polling. The Refresh button
+remains as the manual "rebuild from scratch" path.
 
 - **Overview** — Four KPI tiles (Connected sources, Registered assets,
   Users, Recent failures) computed from `/api/sources`, `/api/assets`,
@@ -395,4 +397,4 @@ SCSS classes — don't reinvent.
 - [x] Source create/edit modal on Configuration → Data Sources card — Phase 5b follow-up
 - [x] Per-source health pills on Health tab; DEMO pills retired — Phase 5c
 - [ ] Wire Notifications & Email card (still Reserved until delivery subsystem ships)
-- [ ] Live Dashboard via WebSocket — Phase 6b
+- [x] Live Dashboard + Health source pills via WebSocket — Phase 6b

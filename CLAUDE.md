@@ -393,7 +393,7 @@ Phases 1–4 are shipped end-to-end. Subsequent phases:
 | 5b    | Postgres connector (test + introspect → auto-populate assets) | Test/Sync buttons on Configuration → Data Sources card; status + lastSyncAt flip from probe results | done   |
 | 5c    | Source-status pills on Health; DEMO pills retired              | Two sections — Platform Services + Data Sources — each pill driven by real state | done   |
 | 6a    | (no new endpoints)                                             | Dashboard wired to real `/api/sources` + `/api/assets` + `/api/users` + `/api/audit`; mocks dropped, "Alerts" → "Recent Failures" | done |
-| 6b    | WebSocket gateway for live KPIs (source-status flips, audit entries) | Push updates to Dashboard cards already wired by 6a — no new view, just live refresh | queued |
+| 6b    | `EventsModule` (`@WebSocketGateway` on `/events`); SourcesService + AuditService emit on state change | `EventsClient` rxjs service; Dashboard + System.Health subscribe and patch local state in place | done |
 
 ### Phase 4 — singleton settings pattern
 
@@ -536,6 +536,47 @@ CLI for rotation. (The card lived on System → Configuration originally,
 but Configuration is for things you change and License is install-time
 data you observe — collapsed into Health to stop the duplication.)
 
+### Phase 6b — WebSocket event gateway (live updates)
+
+A single `EventsModule` (`@Global()`) exposes an `EventsService` whose
+`emit(type, payload)` is called from anywhere in the codebase — and an
+`EventsGateway` that broadcasts every emission to every authenticated
+WebSocket client.
+
+- **Path**: `ws://host/events` (or `wss://` in prod). Note the path is
+  *not* under `/api` — `setGlobalPrefix('api')` only applies to HTTP
+  controllers, not WS gateways. The frontend has a separate
+  `environment.wsBase` for this reason.
+- **Adapter**: plain `ws` via `@nestjs/platform-ws`. We don't need
+  socket.io's reconnect/transport-fallback machinery; `EventsClient`
+  on the frontend handles reconnect explicitly with exponential
+  backoff (1s → 30s).
+- **Auth handshake**: client sends `{ type: 'auth', token }` as the
+  first message. Server validates with the same `JwtService` used by
+  the REST guards. Unauthenticated sockets are closed after a 5s
+  timeout (close code 4001) or immediately on bad token (4002).
+- **Wire shape**: `{ type: string, payload: T, timestamp: ISO }`.
+  Current event types: `auth.ok` (server → client, after successful
+  handshake), `source.status` (a `SourceResponse` after a status
+  flip), `audit` (an `AuditEntry` from every `audit.record()` call).
+- **Mediator pattern**: services don't import the gateway. They
+  inject `EventsService` and call `emit(...)`. The gateway subscribes
+  once at `afterInit` and fans out. Keeps cross-cutting "broadcast on
+  state change" out of business code.
+- **Frontend `EventsClient`** (`@core/utils/events.client.ts`):
+  singleton, subscribes to `NbAuthService.onTokenChange()`, opens the
+  WebSocket whenever a valid JWT is present, sends auth as the first
+  frame, exposes `events$` (all messages) and `on<T>(type)` (filtered
+  stream). Components subscribe and patch local state — no refetch.
+- **Where it shows up live**: Dashboard Overview KPIs, Top Sources,
+  Activity chart, Recent Failures view; System → Health source pills;
+  System → Configuration → Data Sources card. All driven by the same
+  two event types.
+
+Pattern to copy when adding any new event type: pick a dotted-path
+name, emit from the service that owns the state, subscribe in
+component(s) that render it. Don't add a new gateway.
+
 The roadmap snapshot in [README.md](./README.md#roadmap-snapshot) is the
 source of truth for in-flight items — keep it updated.
 
@@ -554,4 +595,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03 — Phase 6a complete (Dashboard wired to real APIs); Phase 6b (WebSocket push) queued.*
+*Last updated: 2026-05-03 — Phase 6 complete (6a wired Dashboard to real APIs; 6b added live WebSocket push for source-status flips and audit entries).*

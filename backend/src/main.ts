@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -8,6 +9,12 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
+
+  // Use the plain `ws` adapter rather than the default socket.io. We don't
+  // need socket.io's reconnect/transport-fallback machinery — the frontend
+  // EventsClient handles reconnect explicitly. The path is set on the
+  // gateway (@WebSocketGateway({ path: '/events' })).
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   app.useGlobalPipes(
     new ValidationPipe({
