@@ -16,6 +16,7 @@ import {
 import { ApiSystemConfig } from '../../@core/api/config-api.service';
 import { ApiSecuritySettings, SecurityApiService } from '../../@core/api/security-api.service';
 import { ApiLicense, LicenseApiService } from '../../@core/api/license-api.service';
+import { ApiSource, ApiSourceStatus, ApiSourceType, SourcesApiService } from '../../@core/api/sources-api.service';
 import {
   ApiHealthComponent,
   ApiHealthMetrics,
@@ -232,14 +233,11 @@ export class SystemComponent implements OnInit {
   systemConfigSaving = false;
   systemConfigError: string | null = null;
 
-  dataSources: DataSource[] = [
-    { id: 'ds-1', name: 'orders-db',         type: 'postgres', status: 'connected',    lastSync: '2026-05-01 14:30' },
-    { id: 'ds-2', name: 'analytics-warehouse', type: 'snowflake', status: 'connected',  lastSync: '2026-05-01 14:25' },
-    { id: 'ds-3', name: 'object-store',      type: 's3',       status: 'connected',    lastSync: '2026-05-01 13:45' },
-    { id: 'ds-4', name: 'metrics-stream',    type: 'kafka',    status: 'degraded',     lastSync: '2026-05-01 12:08' },
-    { id: 'ds-5', name: 'partner-api',       type: 'rest-api', status: 'disconnected', lastSync: '2026-04-28 09:11' },
-    { id: 'ds-6', name: 'session-cache',     type: 'redis',    status: 'connected',    lastSync: '2026-05-01 14:31' },
-  ];
+  // Live source list from /api/sources. Empty until the first load lands —
+  // the Data Sources card on Configuration handles the empty render.
+  dataSources: DataSource[] = [];
+  dataSourcesLoading = false;
+  dataSourcesError: string | null = null;
 
   themeOptions: { value: ThemeChoice; label: string }[] = [
     { value: 'default', label: 'Default (light)' },
@@ -637,6 +635,7 @@ export class SystemComponent implements OnInit {
     private settingsService: SettingsService,
     private healthApi: HealthApiService,
     private licenseApi: LicenseApiService,
+    private sourcesApi: SourcesApiService,
   ) {}
 
   ngOnInit(): void {
@@ -647,6 +646,48 @@ export class SystemComponent implements OnInit {
     this.loadHealthCheck();
     this.loadRecentEvents();
     this.loadLicense();
+    this.loadDataSources();
+  }
+
+  loadDataSources(): void {
+    this.dataSourcesLoading = true;
+    this.dataSourcesError = null;
+    this.sourcesApi.list().subscribe({
+      next: (rows) => {
+        this.dataSources = rows.map((r) => this.toDataSource(r));
+        this.dataSourcesLoading = false;
+      },
+      error: (err) => {
+        this.dataSourcesError = err?.error?.message || err?.message || 'Failed to load data sources';
+        this.dataSourcesLoading = false;
+      },
+    });
+  }
+
+  // Adapter: API uppercase enums → lowercase wire shape the template was
+  // built against. STALE collapses into 'disconnected' for display until we
+  // add a dedicated stale pill state.
+  private toDataSource(r: ApiSource): DataSource {
+    const tz = this.systemConfig.defaultTimezone || 'UTC';
+    const fmt = this.systemConfig.dateFormat || 'YYYY-MM-DD';
+    return {
+      id: r.id,
+      name: r.name,
+      type: this.sourceTypeApiToWire(r.type),
+      status: this.sourceStatusApiToWire(r.status),
+      lastSync: r.lastSyncAt
+        ? formatInZone(new Date(r.lastSyncAt), tz, fmt)
+        : 'Never',
+    };
+  }
+
+  private sourceTypeApiToWire(t: ApiSourceType): DataSourceType {
+    return t.toLowerCase().replace(/_/g, '-') as DataSourceType;
+  }
+
+  private sourceStatusApiToWire(s: ApiSourceStatus): DataSourceStatus {
+    if (s === 'STALE') return 'disconnected';
+    return s.toLowerCase() as DataSourceStatus;
   }
 
   loadLicense(): void {

@@ -152,4 +152,5 @@ the column. See lesson #9 in the root CLAUDE.md.
 - [x] `formatInZone` helper (tz + dateFormat aware timestamps) — Phase 4
 - [x] `HealthApiService` (`/health/check` public, `/health/metrics` auth-gated) — Phase H
 - [x] `LicenseApiService` (read-only — install-time data; written by backend CLI)
-- [ ] `SourcesApiService`, `AssetsApiService` — Phase 5
+- [x] `SourcesApiService`, `AssetsApiService` (CRUD over the metadata layer) — Phase 5a
+- [ ] Real connectors (Postgres test + introspect first) — Phase 5b

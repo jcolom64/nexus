@@ -1,4 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+
+import {
+  ApiAsset,
+  ApiAssetDomain,
+  ApiAssetTag,
+  ApiAssetType,
+  AssetsApiService,
+} from '../../@core/api/assets-api.service';
+import { SystemConfigStore, formatInZone } from '../../@core/utils';
 
 type AssetType = 'table' | 'view' | 'topic' | 'file' | 'api';
 type AssetTag = 'pii' | 'gdpr' | 'sensitive' | 'certified' | 'deprecated' | 'golden';
@@ -15,6 +26,10 @@ interface SchemaField {
   pii?: boolean;
 }
 
+// Display shape used by the template. Mirrors `ApiAsset` but with the
+// lowercase enum form the SCSS / template were built around. Lineage
+// edges are qualifiedNames; the `assetByQName()` helper resolves them
+// into chips.
 interface DataAsset {
   id: string;
   name: string;
@@ -38,7 +53,9 @@ interface DataAsset {
   templateUrl: './assets.component.html',
   styleUrls: ['./assets.component.scss'],
 })
-export class AssetsComponent {
+export class AssetsComponent implements OnInit, OnDestroy {
+
+  private readonly destroy$ = new Subject<void>();
 
   views: { id: 'catalog' | 'domains' | 'lineage'; label: string; icon: string }[] = [
     { id: 'catalog', label: 'Catalog', icon: 'list-outline' },
@@ -70,335 +87,94 @@ export class AssetsComponent {
     { value: 'ops',        label: 'Operations' },
   ];
 
-  private owners: Record<string, AssetOwner> = {
-    jane:   { name: 'Jane Smith',   email: 'jane.smith@nexus.com' },
-    john:   { name: 'John Doe',     email: 'john.doe@nexus.com' },
-    sarah:  { name: 'Sarah Wilson', email: 'sarah.wilson@nexus.com' },
-    mike:   { name: 'Mike Johnson', email: 'mike.johnson@nexus.com' },
-    priya:  { name: 'Priya Patel',  email: 'priya.patel@nexus.com' },
-    david:  { name: 'David Brown',  email: 'david.brown@nexus.com' },
-  };
+  assets: DataAsset[] = [];
+  assetsLoading = false;
+  assetsError: string | null = null;
 
-  assets: DataAsset[] = [
-    {
-      id: 'a-001',
-      name: 'transactions',
-      qualifiedName: 'orders-db.public.transactions',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'transaction_id', type: 'uuid' },
-        { name: 'customer_id', type: 'uuid' },
-        { name: 'amount_cents', type: 'bigint' },
-        { name: 'currency', type: 'varchar(3)' },
-        { name: 'created_at', type: 'timestamp' },
-        { name: 'card_last4', type: 'varchar(4)', pii: true },
-      ],
-      rowCount: 14_280_000,
-      sizeMb: 8420,
-      owner: this.owners.jane,
-      domain: 'sales',
-      tags: ['certified', 'golden'],
-      description: 'Authoritative ledger of every customer transaction. Streaming CDC into the warehouse every minute.',
-      lastUpdated: '2026-05-01 14:30',
-      upstream: [],
-      downstream: ['a-006', 'a-007', 'a-010'],
-    },
-    {
-      id: 'a-002',
-      name: 'customers',
-      qualifiedName: 'orders-db.public.customers',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'customer_id', type: 'uuid' },
-        { name: 'email', type: 'varchar', pii: true },
-        { name: 'full_name', type: 'varchar', pii: true },
-        { name: 'country', type: 'char(2)' },
-        { name: 'signed_up_at', type: 'timestamp' },
-      ],
-      rowCount: 3_120_000,
-      sizeMb: 1180,
-      owner: this.owners.jane,
-      domain: 'sales',
-      tags: ['certified', 'pii', 'gdpr'],
-      description: 'Master customer record. Source of truth for billing and CRM sync.',
-      lastUpdated: '2026-05-01 14:20',
-      upstream: [],
-      downstream: ['a-006', 'a-009'],
-    },
-    {
-      id: 'a-003',
-      name: 'products',
-      qualifiedName: 'orders-db.public.products',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'product_id', type: 'uuid' },
-        { name: 'sku', type: 'varchar' },
-        { name: 'name', type: 'varchar' },
-        { name: 'price_cents', type: 'integer' },
-        { name: 'is_active', type: 'boolean' },
-      ],
-      rowCount: 12_400,
-      sizeMb: 8.2,
-      owner: this.owners.mike,
-      domain: 'product',
-      tags: ['certified'],
-      description: 'Active and historical product catalog.',
-      lastUpdated: '2026-04-30 18:14',
-      upstream: [],
-      downstream: ['a-008'],
-    },
-    {
-      id: 'a-004',
-      name: 'refunds',
-      qualifiedName: 'orders-db.public.refunds',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'refund_id', type: 'uuid' },
-        { name: 'transaction_id', type: 'uuid' },
-        { name: 'amount_cents', type: 'bigint' },
-        { name: 'reason', type: 'varchar' },
-        { name: 'created_at', type: 'timestamp' },
-      ],
-      rowCount: 184_000,
-      sizeMb: 92,
-      owner: this.owners.jane,
-      domain: 'finance',
-      tags: ['certified'],
-      description: 'Refund events linked back to transactions.',
-      lastUpdated: '2026-05-01 13:55',
-      upstream: ['a-001'],
-      downstream: ['a-007'],
-    },
-    {
-      id: 'a-005',
-      name: 'page_views',
-      qualifiedName: 'metrics-stream.events.page_views',
-      type: 'topic',
-      source: 'metrics-stream',
-      schema: [
-        { name: 'session_id', type: 'string' },
-        { name: 'user_id', type: 'string', pii: true },
-        { name: 'url', type: 'string' },
-        { name: 'referrer', type: 'string' },
-        { name: 'timestamp', type: 'timestamp' },
-      ],
-      rowCount: 482_000_000,
-      sizeMb: 142_300,
-      owner: this.owners.priya,
-      domain: 'marketing',
-      tags: ['pii'],
-      description: 'Every page-view event from the web and mobile apps. Retention 30 days.',
-      lastUpdated: '2026-05-01 14:32',
-      upstream: [],
-      downstream: ['a-008', 'a-011'],
-    },
-    {
-      id: 'a-006',
-      name: 'customer_lifetime_value',
-      qualifiedName: 'analytics-warehouse.dim.customer_lifetime_value',
-      type: 'view',
-      source: 'analytics-warehouse',
-      schema: [
-        { name: 'customer_id', type: 'string' },
-        { name: 'tenure_days', type: 'integer' },
-        { name: 'total_spend_usd', type: 'decimal(12,2)' },
-        { name: 'predicted_ltv_usd', type: 'decimal(12,2)' },
-        { name: 'segment', type: 'varchar' },
-      ],
-      rowCount: 3_120_000,
-      sizeMb: 480,
-      owner: this.owners.sarah,
-      domain: 'marketing',
-      tags: ['certified', 'golden'],
-      description: 'Modelled customer lifetime value, refreshed nightly. Joined from transactions and customers.',
-      lastUpdated: '2026-05-01 06:30',
-      upstream: ['a-001', 'a-002'],
-      downstream: ['a-013'],
-    },
-    {
-      id: 'a-007',
-      name: 'daily_revenue',
-      qualifiedName: 'analytics-warehouse.fact.daily_revenue',
-      type: 'view',
-      source: 'analytics-warehouse',
-      schema: [
-        { name: 'date', type: 'date' },
-        { name: 'gross_usd', type: 'decimal(14,2)' },
-        { name: 'refunds_usd', type: 'decimal(14,2)' },
-        { name: 'net_usd', type: 'decimal(14,2)' },
-        { name: 'currency', type: 'varchar(3)' },
-      ],
-      rowCount: 1_460,
-      sizeMb: 0.5,
-      owner: this.owners.david,
-      domain: 'finance',
-      tags: ['certified', 'golden'],
-      description: 'Net daily revenue, used by exec reporting.',
-      lastUpdated: '2026-05-01 06:32',
-      upstream: ['a-001', 'a-004'],
-      downstream: ['a-013'],
-    },
-    {
-      id: 'a-008',
-      name: 'marketing_attribution',
-      qualifiedName: 'analytics-warehouse.fact.marketing_attribution',
-      type: 'view',
-      source: 'analytics-warehouse',
-      schema: [
-        { name: 'date', type: 'date' },
-        { name: 'channel', type: 'varchar' },
-        { name: 'campaign_id', type: 'varchar' },
-        { name: 'first_touch_attribution_usd', type: 'decimal' },
-        { name: 'last_touch_attribution_usd', type: 'decimal' },
-      ],
-      rowCount: 96_000,
-      sizeMb: 31,
-      owner: this.owners.priya,
-      domain: 'marketing',
-      tags: ['certified'],
-      description: 'Attribution model joining web events with conversions.',
-      lastUpdated: '2026-05-01 06:35',
-      upstream: ['a-003', 'a-005'],
-      downstream: [],
-    },
-    {
-      id: 'a-009',
-      name: 'gdpr_export_jobs',
-      qualifiedName: 'orders-db.compliance.gdpr_export_jobs',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'job_id', type: 'uuid' },
-        { name: 'customer_id', type: 'uuid' },
-        { name: 'requested_at', type: 'timestamp' },
-        { name: 'status', type: 'varchar' },
-        { name: 'output_url', type: 'varchar' },
-      ],
-      rowCount: 1_840,
-      sizeMb: 0.6,
-      owner: this.owners.john,
-      domain: 'compliance',
-      tags: ['gdpr', 'sensitive', 'pii'],
-      description: 'Tracks subject-access and right-to-be-forgotten requests.',
-      lastUpdated: '2026-05-01 11:08',
-      upstream: ['a-002'],
-      downstream: [],
-    },
-    {
-      id: 'a-010',
-      name: 'raw_events_2026_05',
-      qualifiedName: 'object-store.s3://nexus-raw/2026-05/',
-      type: 'file',
-      source: 'object-store',
-      schema: [
-        { name: 'partition', type: 'string (path)' },
-        { name: 'event_type', type: 'string' },
-        { name: 'payload', type: 'json' },
-      ],
-      rowCount: 1_120_000_000,
-      sizeMb: 980_000,
-      owner: this.owners.sarah,
-      domain: 'ops',
-      tags: [],
-      description: 'Cold storage of raw event JSON. Partitioned by day. Used for replay and audit.',
-      lastUpdated: '2026-05-01 14:00',
-      upstream: ['a-001', 'a-005'],
-      downstream: [],
-    },
-    {
-      id: 'a-011',
-      name: 'app_clicks',
-      qualifiedName: 'metrics-stream.events.app_clicks',
-      type: 'topic',
-      source: 'metrics-stream',
-      schema: [
-        { name: 'session_id', type: 'string' },
-        { name: 'user_id', type: 'string', pii: true },
-        { name: 'element', type: 'string' },
-        { name: 'timestamp', type: 'timestamp' },
-      ],
-      rowCount: 162_400_000,
-      sizeMb: 24_800,
-      owner: this.owners.priya,
-      domain: 'product',
-      tags: ['pii'],
-      description: 'Click events from native mobile apps.',
-      lastUpdated: '2026-05-01 14:32',
-      upstream: [],
-      downstream: [],
-    },
-    {
-      id: 'a-012',
-      name: 'partner_inventory',
-      qualifiedName: 'partner-api.inventory',
-      type: 'api',
-      source: 'partner-api',
-      schema: [
-        { name: 'sku', type: 'string' },
-        { name: 'available_qty', type: 'integer' },
-        { name: 'updated_at', type: 'timestamp' },
-      ],
-      rowCount: 0,
-      sizeMb: 0,
-      owner: this.owners.mike,
-      domain: 'ops',
-      tags: ['deprecated'],
-      description: 'Live inventory feed from supply partner. Being replaced by the Kafka stream in Q3.',
-      lastUpdated: '2026-04-28 09:11',
-      upstream: [],
-      downstream: [],
-    },
-    {
-      id: 'a-013',
-      name: 'monthly_kpis',
-      qualifiedName: 'analytics-warehouse.fact.monthly_kpis',
-      type: 'view',
-      source: 'analytics-warehouse',
-      schema: [
-        { name: 'month', type: 'date' },
-        { name: 'mrr_usd', type: 'decimal(14,2)' },
-        { name: 'churn_pct', type: 'decimal(5,2)' },
-        { name: 'new_customers', type: 'integer' },
-        { name: 'avg_clv_usd', type: 'decimal(12,2)' },
-      ],
-      rowCount: 60,
-      sizeMb: 0.1,
-      owner: this.owners.david,
-      domain: 'finance',
-      tags: ['certified', 'golden'],
-      description: 'Board-level monthly metrics.',
-      lastUpdated: '2026-05-01 06:40',
-      upstream: ['a-006', 'a-007'],
-      downstream: [],
-    },
-    {
-      id: 'a-014',
-      name: 'audit_log',
-      qualifiedName: 'orders-db.security.audit_log',
-      type: 'table',
-      source: 'orders-db',
-      schema: [
-        { name: 'event_id', type: 'uuid' },
-        { name: 'actor', type: 'varchar', pii: true },
-        { name: 'action', type: 'varchar' },
-        { name: 'resource', type: 'varchar' },
-        { name: 'timestamp', type: 'timestamp' },
-      ],
-      rowCount: 24_900_000,
-      sizeMb: 5_200,
-      owner: this.owners.john,
-      domain: 'compliance',
-      tags: ['sensitive', 'certified'],
-      description: 'Immutable audit log for all admin actions.',
-      lastUpdated: '2026-05-01 14:32',
-      upstream: [],
-      downstream: [],
-    },
-  ];
+  // Cache the tz/fmt at the time of the last conversion so re-rendering
+  // after a System → Configuration save can reflow `lastUpdated` without
+  // refetching from the server.
+  private lastTz = 'UTC';
+  private lastFmt = 'YYYY-MM-DD';
+
+  constructor(
+    private readonly assetsApi: AssetsApiService,
+    private readonly configStore: SystemConfigStore,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadAssets();
+    // Re-format `lastUpdated` strings if the user changes their tz / format
+    // in System → Configuration. The underlying ISO timestamps live in the
+    // API response which we no longer hold; cheapest is to refetch.
+    this.configStore.config$.pipe(takeUntil(this.destroy$)).subscribe((c) => {
+      const tz = c?.defaultTimezone || 'UTC';
+      const fmt = c?.dateFormat || 'YYYY-MM-DD';
+      if (tz === this.lastTz && fmt === this.lastFmt) return;
+      this.lastTz = tz;
+      this.lastFmt = fmt;
+      if (this.assets.length > 0) this.loadAssets();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadAssets(): void {
+    this.assetsLoading = true;
+    this.assetsError = null;
+    this.assetsApi.list().subscribe({
+      next: (rows) => {
+        this.assets = rows.map((r) => this.toDataAsset(r));
+        this.assetsLoading = false;
+      },
+      error: (err) => {
+        this.assetsError = err?.error?.message || err?.message || 'Failed to load assets';
+        this.assetsLoading = false;
+      },
+    });
+  }
+
+  private toDataAsset(a: ApiAsset): DataAsset {
+    const tz = this.configStore.value?.defaultTimezone || 'UTC';
+    const fmt = this.configStore.value?.dateFormat || 'YYYY-MM-DD';
+    this.lastTz = tz;
+    this.lastFmt = fmt;
+    return {
+      id: a.id,
+      name: a.name,
+      qualifiedName: a.qualifiedName,
+      type: this.assetTypeApiToWire(a.type),
+      source: a.sourceName,
+      schema: a.schema.map((f) => ({ ...f })),
+      rowCount: a.rowCount,
+      sizeMb: a.sizeMb,
+      owner: {
+        name: a.ownerName ?? a.ownerEmail ?? '—',
+        email: a.ownerEmail ?? '',
+      },
+      domain: this.assetDomainApiToWire(a.domain),
+      tags: a.tags.map((t) => this.assetTagApiToWire(t)),
+      description: a.description,
+      lastUpdated: formatInZone(new Date(a.lastUpdatedAt), tz, fmt),
+      upstream: [...a.upstream],
+      downstream: [...a.downstream],
+    };
+  }
+
+  private assetTypeApiToWire(t: ApiAssetType): AssetType {
+    return t.toLowerCase() as AssetType;
+  }
+
+  private assetDomainApiToWire(d: ApiAssetDomain): Domain {
+    return d.toLowerCase() as Domain;
+  }
+
+  private assetTagApiToWire(t: ApiAssetTag): AssetTag {
+    return t.toLowerCase() as AssetTag;
+  }
 
   // ---- Computed views ----------------------------------------------------
 
@@ -471,7 +247,8 @@ export class AssetsComponent {
     if (v !== 'catalog') this.selectedAssetId = null;
   }
 
-  selectAsset(asset: DataAsset): void {
+  selectAsset(asset: DataAsset | undefined): void {
+    if (!asset) return;
     this.selectedAssetId = this.selectedAssetId === asset.id ? null : asset.id;
   }
 
@@ -538,7 +315,11 @@ export class AssetsComponent {
     return this.domainOptions.find(o => o.value === d)?.label ?? d;
   }
 
-  assetById(id: string): DataAsset | undefined {
-    return this.assets.find(a => a.id === id);
+  // Lineage edges are stored as qualifiedNames; this helper resolves a
+  // qName back to its asset for the chip render. Returns undefined if the
+  // referenced asset isn't currently loaded (e.g. cross-source lineage to
+  // an asset that hasn't been registered yet).
+  assetByQName(qn: string): DataAsset | undefined {
+    return this.assets.find(a => a.qualifiedName === qn);
   }
 }

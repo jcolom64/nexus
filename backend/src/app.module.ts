@@ -10,6 +10,8 @@ import { ConfigModule } from './config/config.module';
 import { SecurityModule } from './security/security.module';
 import { HealthModule } from './health/health.module';
 import { LicenseModule } from './license/license.module';
+import { SourcesModule } from './sources/sources.module';
+import { AssetsModule } from './assets/assets.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { LicenseModule } from './license/license.module';
     SecurityModule,
     HealthModule,
     LicenseModule,
+    SourcesModule,
+    AssetsModule,
   ],
 })
 export class AppModule {}

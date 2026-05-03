@@ -175,6 +175,131 @@ model SystemConfig {
   @@map("system_config")
 }
 
+// ---- Sources & Assets (Phase 5a) ------------------------------------------
+//
+// A `Source` is a registered external data system (Postgres database,
+// Kafka cluster, S3 bucket, REST partner, etc.). An `Asset` is something
+// discovered inside a source (table / view / topic / file / endpoint).
+// Lineage is captured as directed edges in `AssetLineage`.
+//
+// Phase 5a intentionally has no connector code: status / lastSyncAt are
+// edited by humans, and assets are seeded explicitly. Phase 5b layers a
+// real Postgres connector on top of this metadata model.
+
+enum SourceType {
+  POSTGRES
+  MYSQL
+  MONGODB
+  S3
+  REST_API
+  KAFKA
+  SNOWFLAKE
+  REDIS
+}
+
+enum SourceStatus {
+  CONNECTED
+  DEGRADED
+  DISCONNECTED
+  STALE
+}
+
+model Source {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  type        SourceType
+  status      SourceStatus @default(DISCONNECTED)
+  description String       @default("")
+
+  // Connection details. Secrets are deliberately not stored here yet —
+  // Phase 5b will add a separate encrypted credentials table.
+  host        String?
+  port        Int?
+  database    String?
+
+  lastSyncAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  assets      Asset[]
+
+  @@map("sources")
+}
+
+enum AssetType {
+  TABLE
+  VIEW
+  TOPIC
+  FILE
+  API
+}
+
+enum AssetTag {
+  PII
+  GDPR
+  SENSITIVE
+  CERTIFIED
+  DEPRECATED
+  GOLDEN
+}
+
+enum AssetDomain {
+  SALES
+  FINANCE
+  MARKETING
+  PRODUCT
+  COMPLIANCE
+  OPS
+}
+
+model Asset {
+  id            String      @id @default(cuid())
+  name          String
+  qualifiedName String      @unique
+  type          AssetType
+
+  source        Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  sourceId      String
+
+  // Schema is a JSON array of `{ name, type, pii? }` entries — too sparse
+  // to be worth a normalised column table at this stage.
+  schema        Json
+  rowCount      Int         @default(0)
+  sizeMb        Int         @default(0)
+
+  // Ownership is denormalised — owner may be a non-user (team alias, etc.).
+  // Email is the canonical identifier; name is a display convenience.
+  ownerEmail    String?
+  ownerName     String?
+
+  domain        AssetDomain
+  tags          AssetTag[]  @default([])
+
+  description   String      @default("")
+  lastUpdatedAt DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  upstreamEdges   AssetLineage[] @relation("downstream")
+  downstreamEdges AssetLineage[] @relation("upstream")
+
+  @@map("assets")
+  @@index([sourceId])
+  @@index([domain])
+}
+
+// Directed edge: upstreamId → downstreamId. Two FKs to Asset; both cascade
+// on delete so removing an asset cleans up its lineage entries.
+model AssetLineage {
+  upstream     Asset  @relation("upstream",   fields: [upstreamId],   references: [id], onDelete: Cascade)
+  upstreamId   String
+  downstream   Asset  @relation("downstream", fields: [downstreamId], references: [id], onDelete: Cascade)
+  downstreamId String
+
+  @@id([upstreamId, downstreamId])
+  @@map("asset_lineage")
+}
+
 // Install-time license, stored as a singleton row. Written by an
 // out-of-band CLI (`npm --prefix backend run license:apply`); there is
 // intentionally no admin-facing PUT/PATCH on this resource. Empty

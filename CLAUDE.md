@@ -357,7 +357,9 @@ Phases 1–4 are shipped end-to-end. Subsequent phases:
 | 3     | `AuditModule` — query + ingestion            | System → Audit                          | done   |
 | 4     | `ConfigModule` + `SecurityModule`            | System → Configuration + Security       | done   |
 | H     | `HealthModule` (`/health/check`, `/health/metrics`) | System → Health (real status + CPU/mem/DB size + audit-driven Recent Events) | done   |
-| 5     | `SourcesModule` + `AssetsModule` + connectors| replace mock catalog in Assets          | queued |
+| 5a    | `SourcesModule` + `AssetsModule` (metadata only — no connectors yet) | Assets page + Configuration → Data Sources card off mock arrays | done   |
+| 5b    | Postgres connector (test + introspect → auto-populate assets) | "Sync now" on a source; status flips to derived | queued |
+| 5c    | Source-status pills on Health (per-source); decide DEMO-pill fate | Health tab third row | queued |
 | 6     | WebSocket gateway for live KPIs              | stream Dashboard sparklines             | queued |
 
 ### Phase 4 — singleton settings pattern
@@ -387,6 +389,28 @@ JWT becomes valid via `NbAuthService.onTokenChange()`, and exposes
   size, CPU %, DB size on disk), so requires JWT. CPU sampled in-request via
   two `os.cpus()` snapshots ~100ms apart; same for `process.cpuUsage()`. The
   app vs system split is deliberate — see "App vs system metrics" below.
+
+### Phase 5a — Sources & Assets (metadata layer)
+
+- `Source` is a registered external data system (Postgres, Kafka, S3, …)
+  with name + type + status + connection params (no secrets yet — Phase 5b
+  adds an encrypted credentials store).
+- `Asset` is something inside a source (table / view / topic / file / endpoint),
+  with schema (JSON), row count, size, owner, domain, tags, description.
+- `AssetLineage` is a directed-edge join table (`upstreamId → downstreamId`)
+  for catalog lineage rendering.
+- Endpoints (all auth-gated, audited under `category=DATA`):
+  - `GET /api/sources`, `GET /api/sources/:id`, `POST /api/sources`,
+    `PATCH /api/sources/:id`, `DELETE /api/sources/:id`
+  - Same shape for `/api/assets`. Asset CRUD accepts lineage edges by
+    *qualifiedName* — `replaceLineage()` resolves them to ids inside a
+    transaction; unknown names are silently dropped (resilient to seed
+    ordering).
+- Cascade: deleting a source cascades to its assets which cascades to
+  lineage edges. Confirmed via Prisma `onDelete: Cascade`.
+- Phase 5a deliberately has **no connector code** — `status` and
+  `lastSyncAt` are edited by humans. Phase 5b layers a real Postgres
+  connector that flips them automatically from probe results.
 
 ### License module (split out of SystemConfig)
 
@@ -431,4 +455,4 @@ session-specific lessons (see the indexed entries in
 
 ---
 
-*Last updated: 2026-05-03.*
+*Last updated: 2026-05-03 — Phase 5a (Sources + Assets metadata) shipped.*

@@ -16,13 +16,25 @@ backend/
 ├── docker-compose.yml         ← Postgres for local dev
 ├── prisma/
 │   ├── schema.prisma          ← Single source of truth for the data model
-│   └── seed.ts                ← Mirrors the six users mocked in the frontend
+│   ├── seed.ts                ← Users, accounts, groups, sources, assets + lineage
+│   └── migrations/            ← One per shipped change
+├── scripts/
+│   └── apply-license.ts       ← `npm run license:apply -- ...` (Phase 4 follow-up)
 ├── src/
 │   ├── main.ts                ← Bootstrap, /api prefix, ValidationPipe, CORS
 │   ├── app.module.ts          ← ConfigModule + feature modules
 │   ├── prisma/                ← Global PrismaService
 │   ├── auth/                  ← login, /me, JWT strategy, guards, decorators
-│   └── users/                 ← Phase 1 CRUD with last-admin protection
+│   ├── users/                 ← Phase 1 CRUD with last-admin protection
+│   ├── accounts/              ← read-only tenants surfaced to the Groups UI
+│   ├── groups/                ← Phase 2 — User Groups CRUD + account assignments
+│   ├── audit/                 ← Phase 3 — append-only log + server-paginated query
+│   ├── config/                ← Phase 4 — singleton SystemConfig
+│   ├── security/              ← Phase 4 — singleton SecuritySettings
+│   ├── health/                ← Phase H — public /check + auth-gated /metrics
+│   ├── license/               ← Phase 4 follow-up — install-time read-only
+│   ├── sources/               ← Phase 5a — data-source registry (CRUD)
+│   └── assets/                ← Phase 5a — data catalog + lineage edges
 └── .env(.example)             ← DATABASE_URL, JWT_SECRET, PORT, CORS_ORIGINS
 ```
 

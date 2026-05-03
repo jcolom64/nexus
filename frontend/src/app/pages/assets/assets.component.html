@@ -235,13 +235,15 @@
           <div class="lineage-mini">
             <div class="lineage-col" *ngIf="selectedAsset.upstream.length > 0">
               <span class="lineage-heading">Upstream ({{ selectedAsset.upstream.length }})</span>
-              <button
-                class="lineage-chip"
-                *ngFor="let id of selectedAsset.upstream"
-                (click)="selectAsset(assetById(id)!)">
-                <nb-icon [icon]="typeIcon(assetById(id)!.type)"></nb-icon>
-                {{ assetById(id)!.name }}
-              </button>
+              <ng-container *ngFor="let qn of selectedAsset.upstream">
+                <button
+                  class="lineage-chip"
+                  *ngIf="assetByQName(qn) as up"
+                  (click)="selectAsset(up)">
+                  <nb-icon [icon]="typeIcon(up.type)"></nb-icon>
+                  {{ up.name }}
+                </button>
+              </ng-container>
             </div>
             <div class="lineage-col current">
               <span class="lineage-heading">This asset</span>
@@ -252,13 +254,15 @@
             </div>
             <div class="lineage-col" *ngIf="selectedAsset.downstream.length > 0">
               <span class="lineage-heading">Downstream ({{ selectedAsset.downstream.length }})</span>
-              <button
-                class="lineage-chip"
-                *ngFor="let id of selectedAsset.downstream"
-                (click)="selectAsset(assetById(id)!)">
-                <nb-icon [icon]="typeIcon(assetById(id)!.type)"></nb-icon>
-                {{ assetById(id)!.name }}
-              </button>
+              <ng-container *ngFor="let qn of selectedAsset.downstream">
+                <button
+                  class="lineage-chip"
+                  *ngIf="assetByQName(qn) as down"
+                  (click)="selectAsset(down)">
+                  <nb-icon [icon]="typeIcon(down.type)"></nb-icon>
+                  {{ down.name }}
+                </button>
+              </ng-container>
             </div>
           </div>
         </div>

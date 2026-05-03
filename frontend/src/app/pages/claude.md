@@ -51,21 +51,28 @@ library). Replaces the original ngx-admin "Hello sandbox" placeholder.
 
 Three views:
 
-- **Catalog** — searchable grid of 14 sample data assets across 6 sources
-  (orders-db, analytics-warehouse, metrics-stream, object-store, partner-api,
-  session-cache). One universal "Search all fields" input does all
-  filtering — the per-facet dropdowns (type/source/domain/tag) were
-  removed once the search proved sufficient. Clicking a row opens a
-  right-side detail panel with description, schema (with PII flag), tags,
-  and clickable upstream/downstream lineage chips.
+- **Catalog** — searchable grid of all assets fetched from `/api/assets`.
+  One universal "Search all fields" input does the filtering — the
+  per-facet dropdowns (type/source/domain/tag) were removed once the
+  search proved sufficient. Clicking a row opens a right-side detail
+  panel with description, schema (with PII flag), tags, and clickable
+  upstream/downstream lineage chips. Lineage edges are *qualifiedNames*;
+  the `assetByQName(qn)` helper resolves them and the `*ngIf` guard
+  skips chips for assets that aren't currently loaded (cross-source or
+  not-yet-registered).
 - **Domains** — six domain cards (sales, finance, marketing, product,
-  compliance, ops) showing asset count, top assets, and unique-owner avatar
-  stack. The "Open" button drops into Catalog with the search box prefilled
-  to the domain name (search hits the asset's `domain` field).
+  compliance, ops) computed from the loaded asset list. Asset count,
+  top assets, and unique-owner avatar stack come from grouping by
+  `domain`. The "Open" button drops into Catalog with the search box
+  prefilled to the domain name (search hits the asset's `domain` field).
 - **Lineage** — static SVG mock with "v2 preview" badge. Real graph editor
-  lands in Phase 5.
+  lands in Phase 5b/c.
 
-All mock data on `AssetsComponent`.
+Data shape: API enums (`TABLE`, `SALES`, `PII`, …) lowercase-mapped at the
+component boundary (see `assetTypeApiToWire` etc. in `AssetsComponent`).
+`lastUpdated` is formatted via `formatInZone` on receipt; the
+`SystemConfigStore` subscription in `ngOnInit` triggers a refetch + reformat
+when the user changes timezone / date format on System → Configuration.
 
 ### System (`system/`)
 
@@ -327,6 +334,9 @@ SCSS classes — don't reinvent.
 - [x] Wire Audit to `/api/audit` — Phase 3
 - [x] Wire Security + Configuration to API — Phase 4
 - [x] Wire Health page to `/api/health/check` + `/api/health/metrics` — Phase H
-- [ ] Wire Data Sources / Notifications & Email cards in Configuration — Phase 5
-- [ ] Wire Assets catalog to real connectors — Phase 5
+- [x] Wire Configuration → Data Sources card to `/api/sources` — Phase 5a
+- [x] Wire Assets page to `/api/assets` (catalog + domains, with real lineage edges) — Phase 5a
+- [ ] Wire Notifications & Email card (still Reserved until delivery subsystem ships)
+- [ ] Real connectors — test/introspect/sync — Phase 5b
+- [ ] Per-source health pills on Health tab — Phase 5c
 - [ ] Live Dashboard via WebSocket — Phase 6
