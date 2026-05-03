@@ -1,0 +1,221 @@
+@import '../../../@theme/styles/themes';
+@import '~bootstrap/scss/mixins/breakpoints';
+@import '~@nebular/theme/styles/global/breakpoints';
+
+@include nb-install-component() {
+  .account-container {
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 1.5rem;
+
+      h6 {
+        margin: 0;
+        color: nb-theme(text-primary-color);
+        font-weight: 600;
+      }
+
+      button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    }
+
+    .table-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+
+      .description {
+        margin: 0;
+        color: nb-theme(text-hint-color);
+        flex: 1;
+        min-width: 300px;
+      }
+
+      .table-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        
+        label {
+          font-size: 0.875rem;
+          color: nb-theme(text-basic-color);
+          margin: 0;
+        }
+
+        nb-select {
+          min-width: 80px;
+        }
+
+        span {
+          font-size: 0.875rem;
+          color: nb-theme(text-basic-color);
+        }
+      }
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+
+      th {
+        background-color: nb-theme(background-basic-color-2);
+        color: nb-theme(text-primary-color);
+        font-weight: 600;
+        padding: 1rem 0.75rem;
+        text-align: left;
+        border-bottom: 2px solid nb-theme(divider-color);
+        font-size: 0.875rem;
+
+        &:first-child {
+          border-top-left-radius: nb-theme(card-border-radius);
+        }
+
+        &:last-child {
+          border-top-right-radius: nb-theme(card-border-radius);
+        }
+      }
+
+      td {
+        padding: 0.875rem 0.75rem;
+        border-bottom: 1px solid nb-theme(divider-color);
+        color: nb-theme(text-basic-color);
+        font-size: 0.875rem;
+        vertical-align: middle;
+      }
+
+      tr {
+        &:hover {
+          background-color: nb-theme(background-basic-color-1);
+        }
+
+        &:last-child td {
+          border-bottom: none;
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+
+        button {
+          padding: 0.25rem;
+          min-width: auto;
+          width: 2rem;
+          height: 2rem;
+          
+          nb-icon {
+            font-size: 1rem;
+          }
+        }
+
+        @include media-breakpoint-down(sm) {
+          flex-direction: column;
+          gap: 0.125rem;
+
+          button {
+            width: 1.75rem;
+            height: 1.75rem;
+          }
+        }
+      }
+    }
+
+    .pagination-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+
+      p {
+        margin: 0;
+        color: nb-theme(text-hint-color);
+        font-size: 0.875rem;
+      }
+
+      .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .page-info {
+          font-size: 0.875rem;
+          color: nb-theme(text-basic-color);
+          margin: 0 0.5rem;
+        }
+
+        button {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+      }
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 2rem;
+      color: nb-theme(text-hint-color);
+      
+      p {
+        margin: 0;
+        font-size: 1rem;
+      }
+    }
+
+    // Responsive adjustments
+    @include media-breakpoint-down(lg) {
+      .header-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+
+        button {
+          align-self: flex-end;
+        }
+      }
+
+      .table-info {
+        flex-direction: column;
+        align-items: stretch;
+
+        .description {
+          min-width: auto;
+        }
+
+        .table-controls {
+          justify-content: flex-end;
+        }
+      }
+    }
+
+    @include media-breakpoint-down(md) {
+      .table {
+        font-size: 0.75rem;
+
+        th, td {
+          padding: 0.5rem 0.375rem;
+        }
+      }
+
+      .pagination-info {
+        flex-direction: column;
+        align-items: stretch;
+
+        .pagination-controls {
+          justify-content: center;
+        }
+      }
+    }
+  }
+}

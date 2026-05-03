@@ -1,0 +1,222 @@
+// Phase 1 schema: Auth + Users only.
+// Future phases (User Groups, Audit, Assets, etc.) will extend this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMINISTRATOR
+  MANAGER
+  USER
+  AUDITOR
+}
+
+enum UserState {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  INVITED
+}
+
+// Permissions assignable to a UserGroup. Distinct from UserRole — these are
+// fine-grained authorizations a group confers on its members within an
+// account, not the user's overall role.
+enum SystemRole {
+  SYSTEM_ADMIN
+  ACCOUNT_VIEWER
+  LICENSE_OVERRIDE
+  USER_VIEWER
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         UserRole   @default(USER)
+  state        UserState  @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  groups       UserGroup[] @relation("UserGroupMembers")
+
+  @@map("users")
+}
+
+// Tenants / business accounts the platform manages. Read-only from the API
+// for now — provisioning lives outside this app.
+model Account {
+  id   String @id
+  name String
+
+  groupAssignments GroupAccountAssignment[]
+
+  @@map("accounts")
+}
+
+model UserGroup {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  description  String       @default("")
+  systemRoles  SystemRole[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  accountAssignments GroupAccountAssignment[]
+  members            User[]                   @relation("UserGroupMembers")
+
+  @@map("user_groups")
+}
+
+// Per-account permission attached to a group. (Group, Account) is unique.
+model GroupAccountAssignment {
+  group     UserGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String
+  account   Account   @relation(fields: [accountId], references: [id])
+  accountId String
+  role      SystemRole
+
+  @@id([groupId, accountId])
+  @@map("group_account_assignments")
+}
+
+// Append-only audit trail of meaningful server actions.
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  ACCESS
+  EXPORT
+}
+
+enum AuditCategory {
+  AUTH
+  USER
+  CONFIG
+  DATA
+  SECURITY
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILED
+  WARNING
+}
+
+model AuditEntry {
+  id           String        @id @default(cuid())
+  timestamp    DateTime      @default(now())
+  actorId      String?       // null for anonymous (failed login pre-auth)
+  actorEmail   String
+  actorName    String?
+  action       AuditAction
+  category     AuditCategory
+  resource     String        // e.g., user email, group name, path
+  resourceType String        // e.g., 'User', 'Group', 'Session'
+  source       String?       // IP / origin
+  outcome      AuditOutcome
+  metadata     Json?
+
+  @@map("audit_entries")
+  @@index([timestamp])
+  @@index([category])
+  @@index([actorEmail])
+  @@index([action])
+}
+
+// Singleton tables. There is exactly one row in each, keyed by a fixed id.
+// Reads upsert defaults on first hit so a fresh DB never has to be seeded.
+
+model SystemConfig {
+  id                       String   @id @default("singleton")
+
+  // General
+  appNameOverride          String   @default("Nexus")
+  defaultTheme             String   @default("default")
+  defaultLocale            String   @default("en-US")
+  defaultTimezone          String   @default("UTC")
+  dateFormat               String   @default("YYYY-MM-DD")
+  firstDayOfWeek           String   @default("sunday")
+
+  // Data sources (defaults; connections are listed separately)
+  defaultRefreshSeconds    Int      @default(300)
+  defaultRetryAttempts     Int      @default(3)
+  retryBackoffMultiplier   Int      @default(2)
+  maxConcurrentConnectors  Int      @default(8)
+
+  // Notifications & Email
+  smtpHost                 String   @default("smtp.nexus.com")
+  smtpPort                 Int      @default(587)
+  smtpRequireAuth          Boolean  @default(true)
+  smtpUsername             String   @default("no-reply@nexus.com")
+  smtpFromAddress          String   @default("no-reply@nexus.com")
+  notificationEvents       Json     // [{ id, label, enabled }]
+  slackWebhookUrl          String   @default("")
+  teamsWebhookUrl          String   @default("")
+
+  // Performance & Limits
+  cacheTtlSeconds          Int      @default(600)
+  queryTimeoutSeconds      Int      @default(30)
+  maxUploadMb              Int      @default(100)
+  maxConcurrentJobs        Int      @default(16)
+  workerPoolSize           Int      @default(8)
+
+  // Licensing — applied at install time. Empty `licenseExpires` = never expires.
+  // Not editable from the System → Configuration UI; future install/CLI flow
+  // will write these fields and the page only displays them.
+  licenseKey               String   @default("NEXUS-DEV-LCNS-LOCAL-DEV-INST-2026")
+  plan                     String   @default("enterprise")
+  seatsUsed                Int      @default(0)
+  seatsTotal               Int      @default(50)
+  licenseExpires           String   @default("")
+
+  updatedAt                DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model SecuritySettings {
+  id                       String   @id @default("singleton")
+
+  // Authentication
+  loginMethods             String[] @default([])
+  mfaMode                  String   @default("optional")
+  ssoIssuer                String   @default("")
+  sessionTimeoutMinutes    Int      @default(30)
+  rememberMeEnabled        Boolean  @default(true)
+
+  // Password policy
+  passwordMinLength        Int      @default(12)
+  passwordRequireUppercase Boolean  @default(true)
+  passwordRequireLowercase Boolean  @default(true)
+  passwordRequireNumber    Boolean  @default(true)
+  passwordRequireSymbol    Boolean  @default(false)
+  passwordExpiryDays       Int      @default(90)
+  passwordHistoryCount     Int      @default(5)
+
+  // Account lockout
+  failedAttemptThreshold   Int      @default(5)
+  lockoutDurationMinutes   Int      @default(15)
+
+  // Network
+  ipAllowlist              String   @default("")
+  rateLimitPerMinute       Int      @default(600)
+
+  // Compliance
+  tlsMinimumVersion        String   @default("1.2")
+  encryptionAtRest         Boolean  @default(true)
+  auditRetentionDays       Int      @default(365)
+
+  updatedAt                DateTime @updatedAt
+
+  @@map("security_settings")
+}

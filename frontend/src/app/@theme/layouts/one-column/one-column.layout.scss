@@ -1,0 +1,138 @@
+@import '../../styles/themes';
+@import '~bootstrap/scss/mixins/breakpoints';
+@import '~@nebular/theme/styles/global/breakpoints';
+
+@include nb-install-component() {
+  .menu-sidebar ::ng-deep .scrollable {
+    padding-top: nb-theme(layout-padding-top);
+  }
+  
+  // Main layout container - simplified for direct manipulation
+  nb-layout {
+    .main-content,
+    nb-layout-column {
+      // Smooth transitions for layout changes
+      transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out !important;
+      position: relative;
+      box-sizing: border-box;
+      
+      // Default state - will be overridden by JavaScript
+      margin-left: 0;
+      width: 100%;
+      
+      // Content wrapping and overflow handling
+      ::ng-deep {
+        // Ensure all content containers are responsive
+        * {
+          box-sizing: border-box;
+        }
+        
+        // Grid system fixes
+        .row {
+          margin: 0;
+          width: 100%;
+          max-width: 100%;
+        }
+        
+        .col, .col-12, .col-md-12, .col-lg-12, .col-xl-12,
+        [class*="col-"] {
+          width: 100%;
+          max-width: 100%;
+          flex: 0 0 100%;
+          box-sizing: border-box;
+          padding-left: 15px;
+          padding-right: 15px;
+        }
+        
+        // Nebular cards
+        nb-card {
+          width: 100%;
+          max-width: 100%;
+          margin-bottom: 1rem;
+          
+          nb-card-body {
+            width: 100%;
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            hyphens: auto;
+          }
+        }
+        
+        // Bootstrap containers
+        .container, .container-fluid {
+          width: 100%;
+          max-width: 100%;
+          padding-left: 15px;
+          padding-right: 15px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        
+        // Text content - prevent overflow
+        p, div, span, h1, h2, h3, h4, h5, h6 {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          max-width: 100%;
+        }
+        
+        // Tables
+        table {
+          width: 100%;
+          max-width: 100%;
+          table-layout: fixed;
+          
+          td, th {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+          }
+        }
+        
+        // Code blocks
+        pre, code {
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          max-width: 100%;
+          overflow-x: auto;
+        }
+        
+        // Media elements
+        img, video, canvas, iframe {
+          max-width: 100%;
+          height: auto;
+        }
+      }
+    }
+  }
+  
+  // Mobile responsive - sidebar becomes overlay
+  @include media-breakpoint-down(lg) {
+    .main-content,
+    nb-layout-column {
+      margin-left: 0 !important;
+      width: 100% !important;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+  
+  @include media-breakpoint-down(md) {
+    .main-content,
+    nb-layout-column {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+  }
+  
+  @include media-breakpoint-down(sm) {
+    .main-content,
+    nb-layout-column {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+}

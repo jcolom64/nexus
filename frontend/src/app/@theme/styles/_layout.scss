@@ -1,0 +1,161 @@
+@mixin ngx-layout() {
+  @include media-breakpoint-down(is) {
+    .row {
+      margin-left: -10px;
+      margin-right: -10px;
+    }
+  }
+
+  // Don't allow the viewport to shrink narrower than the sidebar — when it does,
+  // the user gets a horizontal scrollbar instead of an overlapping menu.
+  html,
+  body {
+    min-width: nb-theme(sidebar-width);
+  }
+
+  // Lift the CDK overlay container (nb-select / nb-tooltip / nb-dialog panels)
+  // above modal overlays in this app (z-1100). Otherwise select dropdowns open
+  // behind the modal backdrop and look like they did nothing.
+  .cdk-overlay-container {
+    z-index: 1200 !important;
+  }
+  
+  // Pin the System page content to the visible content area regardless of how
+  // the column is sized by inline JS or media queries. The sidebar overlay sits
+  // above the column, so we offset by the sidebar's current width — Nebular puts
+  // the state class (expanded/compacted/collapsed) on <nb-sidebar> itself, so we
+  // use :has() to react from the layout root.
+  .ngx-system-fullbleed {
+    position: fixed;
+    top: nb-theme(header-height);
+    right: 0;
+    bottom: nb-theme(footer-height);
+    left: nb-theme(sidebar-width);
+    z-index: 1;
+    overflow: auto;
+    transition: left 0.3s ease-in-out;
+  }
+
+  nb-layout:has(nb-sidebar.compacted) .ngx-system-fullbleed {
+    left: nb-theme(sidebar-width-compact);
+  }
+
+  nb-layout:has(nb-sidebar.collapsed) .ngx-system-fullbleed {
+    left: 0;
+  }
+
+  // Push the main content column right of the sidebar based on its state class.
+  // Uses :has() so transitions are pure CSS and don't depend on the racy JS in
+  // one-column.layout.ts measuring the sidebar mid-animation. !important is
+  // required to beat the inline width/margin styles that JS still applies.
+  nb-layout:has(nb-sidebar.expanded) nb-layout-column.main-content {
+    margin-left: nb-theme(sidebar-width) !important;
+    width: calc(100% - #{nb-theme(sidebar-width)}) !important;
+  }
+
+  nb-layout:has(nb-sidebar.compacted) nb-layout-column.main-content {
+    margin-left: nb-theme(sidebar-width-compact) !important;
+    width: calc(100% - #{nb-theme(sidebar-width-compact)}) !important;
+  }
+
+  nb-layout:has(nb-sidebar.collapsed) nb-layout-column.main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  // Enhanced layout behavior for sidebar toggle
+  nb-layout {
+    overflow: hidden;
+    
+    // Ensure proper content area width adjustment
+    nb-layout-column {
+      transition: all 0.3s ease-in-out;
+      overflow: hidden;
+      box-sizing: border-box;
+      
+      // Force content to adapt to new width
+      ::ng-deep {
+        * {
+          box-sizing: border-box;
+        }
+      }
+    }
+    
+    // Sidebar state specific adjustments
+    &.sidebar-expanded {
+      nb-layout-column {
+        @include media-breakpoint-up(lg) {
+          width: calc(100vw - #{nb-theme(sidebar-width)});
+          max-width: calc(100vw - #{nb-theme(sidebar-width)});
+        }
+      }
+    }
+    
+    &.sidebar-collapsed,
+    &.sidebar-compacted {
+      nb-layout-column {
+        @include media-breakpoint-up(lg) {
+          width: calc(100vw - 3.5rem);
+          max-width: calc(100vw - 3.5rem);
+        }
+      }
+    }
+  }
+  
+  // Global content responsiveness with forced width recalculation
+  .row {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  
+  nb-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    
+    nb-card-body {
+      width: 100%;
+      max-width: 100%;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      box-sizing: border-box;
+    }
+  }
+  
+  // Container responsiveness with viewport width calculations
+  .container, .container-fluid {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overflow: hidden;
+  }
+  
+  // Responsive adjustments
+  @include media-breakpoint-down(lg) {
+    nb-layout-column {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+  
+  @include media-breakpoint-down(md) {
+    nb-layout-column {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+  
+  @include media-breakpoint-down(sm) {
+    .container, .container-fluid {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+}

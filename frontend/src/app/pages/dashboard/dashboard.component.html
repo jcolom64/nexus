@@ -1,0 +1,176 @@
+<div class="dashboard">
+  <header class="dashboard-header">
+    <div class="dashboard-title">
+      <h6>Dashboard</h6>
+      <span class="dashboard-subtitle">Live snapshot of the Nexus tenant.</span>
+    </div>
+    <nav class="view-switcher" role="tablist">
+      <button
+        *ngFor="let v of views"
+        class="view-pill"
+        [class.active]="activeView === v.id"
+        role="tab"
+        (click)="setView(v.id)">
+        <nb-icon [icon]="v.icon"></nb-icon>
+        {{ v.label }}
+      </button>
+    </nav>
+  </header>
+
+  <!-- ============================ OVERVIEW ============================ -->
+  <section class="dashboard-view" *ngIf="activeView === 'overview'">
+    <div class="kpi-row">
+      <div class="kpi-card" *ngFor="let kpi of overviewKpis" [attr.data-status]="kpi.status">
+        <div class="kpi-meta">
+          <span class="kpi-label">{{ kpi.label }}</span>
+          <span class="kpi-value">{{ kpi.value }}</span>
+          <span class="kpi-delta" *ngIf="kpi.delta !== 0" [class.up]="kpi.delta > 0" [class.down]="kpi.delta < 0">
+            <nb-icon [icon]="kpi.delta > 0 ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+            {{ kpi.delta > 0 ? '+' : '' }}{{ kpi.delta }}% vs. yesterday
+          </span>
+        </div>
+        <svg class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+          <path [attr.d]="sparklineArea(kpi.trend)" class="area"></path>
+          <path [attr.d]="sparklinePath(kpi.trend)" class="line"></path>
+        </svg>
+      </div>
+    </div>
+
+    <div class="dashboard-grid two-col">
+      <nb-card class="big-chart-card">
+        <nb-card-header>
+          <span>Throughput (records / minute, last 24h)</span>
+          <span class="header-hint">Peak: 282 / min</span>
+        </nb-card-header>
+        <nb-card-body>
+          <svg class="big-chart" viewBox="0 0 100 30" preserveAspectRatio="none">
+            <path [attr.d]="sparklineArea(hourlyThroughput)" class="area"></path>
+            <path [attr.d]="sparklinePath(hourlyThroughput)" class="line"></path>
+          </svg>
+          <div class="chart-axis">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>now</span>
+          </div>
+        </nb-card-body>
+      </nb-card>
+
+      <nb-card>
+        <nb-card-header>Top sources by volume</nb-card-header>
+        <nb-card-body>
+          <div class="topn-list">
+            <div class="topn-row" *ngFor="let s of topSources">
+              <div class="topn-meta">
+                <span class="topn-name">{{ s.name }}</span>
+                <span class="topn-type">{{ s.type }}</span>
+              </div>
+              <div class="topn-bar">
+                <span class="bar-fill" [style.width.%]="s.fillPct"></span>
+              </div>
+              <span class="topn-value">{{ formatRecords(s.records) }}</span>
+            </div>
+          </div>
+        </nb-card-body>
+      </nb-card>
+    </div>
+
+    <nb-card>
+      <nb-card-header>Recent system events</nb-card-header>
+      <nb-card-body>
+        <ul class="event-feed">
+          <li class="event-row" *ngFor="let e of recentFeed">
+            <nb-icon [icon]="statusIcon(e.severity)" [status]="e.severity"></nb-icon>
+            <span class="event-time">{{ e.time }}</span>
+            <span class="event-source">{{ e.source }}</span>
+            <span class="event-msg">{{ e.message }}</span>
+          </li>
+        </ul>
+      </nb-card-body>
+    </nb-card>
+  </section>
+
+  <!-- ============================ DATA SOURCES ============================ -->
+  <section class="dashboard-view" *ngIf="activeView === 'sources'">
+    <div class="kpi-row mini">
+      <div class="status-tile" *ngFor="let s of sourceStats" [attr.data-status]="s.status">
+        <span class="status-count">{{ s.count }}</span>
+        <span class="status-label">{{ s.label }}</span>
+      </div>
+    </div>
+
+    <div class="source-grid">
+      <nb-card class="source-card" *ngFor="let ds of dataSourceCards">
+        <nb-card-body>
+          <header class="source-card-head">
+            <div class="source-meta">
+              <span class="source-name">{{ ds.name }}</span>
+              <span class="source-type">{{ ds.type }}</span>
+            </div>
+            <span class="state-pill" [attr.data-state]="sourceStatusPillState(ds.status)">
+              <span class="state-dot"></span>
+              {{ sourceStatusLabel(ds.status) }}
+            </span>
+          </header>
+
+          <svg class="card-chart" viewBox="0 0 100 30" preserveAspectRatio="none">
+            <path [attr.d]="sparklineArea(ds.trend)" class="area"></path>
+            <path [attr.d]="sparklinePath(ds.trend)" class="line"></path>
+          </svg>
+
+          <dl class="source-stats">
+            <div>
+              <dt>Throughput</dt>
+              <dd>{{ ds.throughput }}/min</dd>
+            </div>
+            <div>
+              <dt>Latency</dt>
+              <dd>{{ ds.latencyMs }} ms</dd>
+            </div>
+            <div>
+              <dt>Uptime</dt>
+              <dd>{{ ds.uptimePct }}%</dd>
+            </div>
+          </dl>
+        </nb-card-body>
+      </nb-card>
+    </div>
+  </section>
+
+  <!-- ============================ ALERTS ============================ -->
+  <section class="dashboard-view" *ngIf="activeView === 'alerts'">
+    <div class="kpi-row mini">
+      <div class="status-tile" *ngFor="let a of alertCounts" [attr.data-status]="a.status">
+        <nb-icon [icon]="statusIcon(a.status)"></nb-icon>
+        <div>
+          <span class="status-count">{{ a.count }}</span>
+          <span class="status-label">{{ a.label }}</span>
+        </div>
+      </div>
+    </div>
+
+    <nb-card>
+      <nb-card-header>
+        <span>Active alerts</span>
+        <span class="header-hint">{{ activeAlerts.length }} total</span>
+      </nb-card-header>
+      <nb-card-body>
+        <ul class="alert-list">
+          <li class="alert-row" *ngFor="let a of activeAlerts" [attr.data-severity]="a.severity">
+            <nb-icon [icon]="statusIcon(a.severity)"></nb-icon>
+            <div class="alert-body">
+              <div class="alert-title">{{ a.title }}</div>
+              <div class="alert-meta">
+                <span>{{ a.source }}</span>
+                <span class="dot">·</span>
+                <span>{{ a.age }} ago</span>
+                <span class="alert-ack" *ngIf="a.acknowledged">acknowledged</span>
+              </div>
+            </div>
+            <div class="alert-actions">
+              <button nbButton ghost size="tiny" *ngIf="!a.acknowledged">Acknowledge</button>
+              <button nbButton ghost size="tiny">View</button>
+            </div>
+          </li>
+        </ul>
+      </nb-card-body>
+    </nb-card>
+  </section>
+</div>

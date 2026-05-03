@@ -1,0 +1,127 @@
+@import '../../../@theme/styles/themes';
+@import '~bootstrap/scss/mixins/breakpoints';
+@import '~@nebular/theme/styles/global/breakpoints';
+
+@include nb-install-component() {
+  .health-container {
+    .health-overview {
+      margin-bottom: 1.5rem;
+      
+      h6 {
+        margin: 0 0 0.5rem 0;
+        color: nb-theme(text-primary-color);
+        font-weight: 600;
+      }
+      
+      .description {
+        margin: 0;
+        color: nb-theme(text-hint-color);
+        font-size: 0.875rem;
+      }
+    }
+    
+    .health-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+      
+      .metric-card {
+        background: nb-theme(background-basic-color-1);
+        border: 1px solid nb-theme(divider-color);
+        border-radius: nb-theme(card-border-radius);
+        padding: 1rem;
+        transition: all 0.2s ease-in-out;
+        
+        &:hover {
+          background: nb-theme(background-basic-color-2);
+          box-shadow: nb-theme(card-shadow);
+        }
+        
+        .metric-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.75rem;
+          
+          nb-icon {
+            font-size: 1.2rem;
+          }
+          
+          .metric-name {
+            font-weight: 600;
+            color: nb-theme(text-primary-color);
+            font-size: 0.875rem;
+          }
+        }
+        
+        .metric-value {
+          margin-bottom: 0.5rem;
+          
+          span {
+            font-size: 1.25rem;
+            font-weight: 700;
+            
+            &.status-success {
+              color: nb-theme(color-success-500);
+            }
+            
+            &.status-warning {
+              color: nb-theme(color-warning-500);
+            }
+            
+            &.status-danger {
+              color: nb-theme(color-danger-500);
+            }
+            
+            &.status-info {
+              color: nb-theme(color-info-500);
+            }
+          }
+        }
+        
+        .metric-description {
+          small {
+            color: nb-theme(text-hint-color);
+            font-size: 0.75rem;
+            line-height: 1.2;
+          }
+        }
+      }
+    }
+    
+    .health-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      
+      button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    }
+  }
+  
+  // Responsive adjustments
+  @include media-breakpoint-down(md) {
+    .health-container {
+      .health-metrics {
+        grid-template-columns: 1fr;
+        
+        .metric-card {
+          padding: 0.75rem;
+        }
+      }
+      
+      .health-actions {
+        justify-content: center;
+        
+        button {
+          flex: 1;
+          min-width: 140px;
+        }
+      }
+    }
+  }
+}

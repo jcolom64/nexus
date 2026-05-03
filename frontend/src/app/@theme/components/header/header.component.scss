@@ -1,0 +1,521 @@
+@import '~bootstrap/scss/mixins/breakpoints';
+@import '~@nebular/theme/styles/global/breakpoints';
+@import '../../styles/themes';
+
+@include nb-install-component() {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 2.25rem;
+  background-color: #2c3e50;
+  color: #ffffff;
+  
+  // Dark background for all themes
+  :host-context(.nb-theme-default) & {
+    background-color: #2c3e50;
+    color: #ffffff;
+  }
+  
+  :host-context(.nb-theme-dark) & {
+    background-color: #1a252f;
+    color: #ffffff;
+  }
+  
+  :host-context(.nb-theme-cosmic) & {
+    background-color: #323259;
+    color: #ffffff;
+  }
+
+  .logo-container {
+    display: flex;
+    align-items: center;
+    width: calc(#{nb-theme(sidebar-width)} - #{nb-theme(header-padding)});
+  }
+
+  nb-actions {
+    // Light styling for actions in dark header across all themes
+    :host-context(.nb-theme-default) &,
+    :host-context(.nb-theme-dark) &,
+    :host-context(.nb-theme-cosmic) & {
+      nb-action {
+        .whats-new-btn {
+          color: rgba(255, 255, 255, 0.9) !important;
+          
+          &:hover {
+            color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.1) !important;
+          }
+          
+          nb-icon {
+            color: rgba(255, 255, 255, 0.9) !important;
+          }
+        }
+      }
+    }
+  }
+
+  nb-action {
+    height: auto;
+    display: flex;
+    align-content: center;
+  }
+
+  nb-user {
+    cursor: pointer;
+    color: #ffffff !important;
+
+    ::ng-deep {
+      .user-picture {
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        font-size: 0.625rem !important;
+      }
+
+      .user-name {
+        color: #ffffff !important;
+        font-size: 0.6875rem !important;
+        line-height: 1.1 !important;
+      }
+
+      .user-title {
+        color: rgba(255, 255, 255, 0.8) !important;
+        font-size: 0.5625rem !important;
+        line-height: 1.1 !important;
+      }
+
+      .info-container {
+        margin-left: 0.4rem !important;
+      }
+    }
+  }
+
+  ::ng-deep nb-search button {
+    padding: 0!important;
+  }
+
+  .header-container {
+    display: flex;
+    align-items: center;
+    width: auto;
+
+    .logo {
+      padding: 0 0.875rem;
+      font-size: 1rem;
+      white-space: nowrap;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+
+      .nexus-logo {
+        height: 1rem;
+        width: auto;
+        margin-right: 0.35rem;
+      }
+
+      .nexus-text {
+        font-weight: 700;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'Inter', 'Roboto', sans-serif;
+        font-size: 1rem;
+        color: #ffffff;
+        letter-spacing: -0.02em;
+      }
+      
+      // Light theme specific styling
+      :host-context(.nb-theme-default) & {
+        color: #ffffff;
+        border-left-color: rgba(255, 255, 255, 0.2);
+        
+        .nexus-text {
+          color: #ffffff;
+        }
+      }
+      
+      // Dark theme specific styling
+      :host-context(.nb-theme-dark) & {
+        color: #ffffff;
+        
+        .nexus-text {
+          color: #ffffff;
+        }
+      }
+      
+      // Cosmic theme specific styling
+      :host-context(.nb-theme-cosmic) & {
+        color: #ffffff;
+        
+        .nexus-text {
+          color: #ffffff;
+        }
+      }
+    }
+    
+    .version {
+      margin-left: 0.35rem;
+      font-size: 0.625rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Inter', 'Roboto', sans-serif;
+      letter-spacing: 0.01em;
+      
+      // Consistent light color across all themes
+      :host-context(.nb-theme-default) &,
+      :host-context(.nb-theme-dark) &,
+      :host-context(.nb-theme-cosmic) & {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+  }
+
+  .theme-toggle-action {
+    display: flex;
+    align-items: center;
+  }
+
+  .theme-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 2.5rem;
+    height: 1.25rem;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+    }
+
+    .theme-toggle-icon {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.625rem !important;
+      width: 0.625rem !important;
+      height: 0.625rem !important;
+      color: rgba(255, 255, 255, 0.6) !important;
+      pointer-events: none;
+      transition: color 0.2s ease, opacity 0.2s ease;
+      z-index: 1;
+
+      &.left  { left: 0.25rem; }
+      &.right { right: 0.25rem; }
+    }
+
+    .theme-toggle-thumb {
+      position: absolute;
+      top: 0.0625rem;
+      left: 0.0625rem;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      transition: transform 0.22s ease;
+      z-index: 0;
+    }
+
+    // Light state: thumb on left, sun is the "active" side (covered by the
+    // thumb, so it appears bright); moon is faded.
+    &:not(.is-dark) {
+      .theme-toggle-icon.left  { color: #f5b400 !important; opacity: 1; }
+      .theme-toggle-icon.right { opacity: 0.6; }
+    }
+
+    &.is-dark {
+      background: rgba(20, 30, 50, 0.6);
+      border-color: rgba(255, 255, 255, 0.35);
+
+      .theme-toggle-thumb {
+        transform: translateX(1.125rem);
+        background: #1f2740;
+      }
+
+      .theme-toggle-icon.left  { opacity: 0.5; }
+      .theme-toggle-icon.right { color: #c8d6ff !important; opacity: 1; }
+    }
+  }
+  
+  .whats-new-btn {
+    font-size: 0.6875rem !important;
+    padding: 0.125rem 0.5rem !important;
+    height: 1.5rem !important;
+    line-height: 1 !important;
+
+    nb-icon {
+      margin-right: 0.25rem;
+      font-size: 0.75rem !important;
+      width: 0.75rem !important;
+      height: 0.75rem !important;
+    }
+  }
+
+  // Spacing between action items (What's New / theme toggle / user).
+  ::ng-deep nb-actions {
+    height: auto !important;
+
+    nb-action {
+      padding: 0 1.25rem !important;
+      height: auto !important;
+    }
+  }
+
+  @include media-breakpoint-down(sm) {
+    .control-item {
+      display: none;
+    }
+    .user-action {
+      border: none;
+      padding: 0;
+    }
+  }
+
+  // ============== Profile modal ==============
+  .profile-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 22, 39, 0.55);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 1100;
+    padding: 4rem 1.5rem 1.5rem;
+    overflow-y: auto;
+  }
+
+  .profile-modal {
+    background: nb-theme(background-basic-color-1);
+    border-radius: nb-theme(card-border-radius);
+    box-shadow: 0 20px 50px rgba(15, 22, 39, 0.35);
+    width: min(640px, 100%);
+    display: flex;
+    flex-direction: column;
+    color: nb-theme(text-basic-color);
+    max-height: calc(100vh - 6rem);
+    overflow: hidden;
+  }
+
+  .profile-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid nb-theme(border-basic-color-3);
+
+    .profile-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 50%;
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
+    .profile-head-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+
+      h6 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        color: nb-theme(text-basic-color);
+        line-height: 1.2;
+      }
+
+      .profile-head-email {
+        font-size: 0.75rem;
+        color: nb-theme(text-hint-color);
+      }
+
+      .profile-head-role {
+        font-size: 0.6875rem;
+        color: nb-theme(text-hint-color);
+      }
+    }
+
+    .profile-close {
+      background: transparent;
+      border: 0;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      color: nb-theme(text-hint-color);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background: nb-theme(background-basic-color-2);
+        color: nb-theme(text-basic-color);
+      }
+
+      nb-icon { font-size: 1rem; }
+    }
+  }
+
+  .profile-body {
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+
+    .profile-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+
+      .section-title {
+        margin: 0;
+        font-size: 0.625rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: nb-theme(text-hint-color);
+      }
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 0;
+
+        &.full { grid-column: 1 / -1; }
+
+        .field-label {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: nb-theme(text-hint-color);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        ::ng-deep nb-select {
+          width: 100%;
+          button { width: 100%; }
+        }
+
+        &.readonly {
+          .readonly-value {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 1.875rem;
+
+            .role-pill {
+              padding: 0.125rem 0.5rem;
+              border-radius: 999px;
+              font-size: 0.625rem;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.06em;
+              background: nb-theme(color-primary-transparent-100);
+              color: nb-theme(color-primary-700);
+            }
+
+            .readonly-hint {
+              font-size: 0.6875rem;
+              color: nb-theme(text-hint-color);
+            }
+          }
+        }
+
+        .check-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+          padding: 0.25rem 0;
+        }
+      }
+    }
+
+    .security-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.625rem 0.875rem;
+      border: 1px solid nb-theme(border-basic-color-3);
+      border-radius: nb-theme(card-border-radius);
+      background: nb-theme(background-basic-color-2);
+
+      & + .security-row { margin-top: 0.5rem; }
+
+      .security-label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: nb-theme(text-basic-color);
+      }
+
+      .security-hint {
+        font-size: 0.6875rem;
+        color: nb-theme(text-hint-color);
+
+        .mfa-on  { color: nb-theme(color-success-700); font-weight: 600; }
+        .mfa-off { color: nb-theme(color-warning-700); font-weight: 600; }
+      }
+    }
+  }
+
+  .profile-modal-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid nb-theme(border-basic-color-3);
+    background: nb-theme(background-basic-color-2);
+
+    .profile-foot-status {
+      font-size: 0.6875rem;
+      color: nb-theme(text-hint-color);
+      font-weight: 500;
+
+      &.saved {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: nb-theme(color-success-600);
+        font-weight: 600;
+
+        nb-icon { font-size: 0.75rem; }
+      }
+    }
+
+    .profile-foot-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+  }
+
+  @include media-breakpoint-down(is) {
+    .theme-selector {
+      display: none;
+    }
+  }
+}

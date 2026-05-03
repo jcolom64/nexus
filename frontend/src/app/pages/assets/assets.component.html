@@ -1,0 +1,364 @@
+<div class="assets">
+  <header class="assets-header">
+    <div class="assets-title">
+      <h6>Assets</h6>
+      <span class="assets-subtitle">Discover and govern data assets across every connected source.</span>
+    </div>
+    <nav class="view-switcher" role="tablist">
+      <button
+        *ngFor="let v of views"
+        class="view-pill"
+        [class.active]="activeView === v.id"
+        role="tab"
+        (click)="setView(v.id)">
+        <nb-icon [icon]="v.icon"></nb-icon>
+        {{ v.label }}
+      </button>
+    </nav>
+  </header>
+
+  <!-- ============================ CATALOG ============================ -->
+  <section class="assets-view catalog-view" *ngIf="activeView === 'catalog'" [class.has-detail]="selectedAsset">
+    <div class="catalog-pane">
+      <p class="account-intro">
+        Browse, search, and govern every data asset Nexus knows about. Click a row to open its
+        schema and lineage detail.
+      </p>
+
+      <div class="assets-table" *ngIf="filteredAssets.length > 0; else assetsEmpty">
+        <div class="users-controls">
+          <div class="users-controls-left">
+            <span class="control-label">Display</span>
+            <nb-select
+              size="small"
+              [(selected)]="assetPageSize"
+              (selectedChange)="onAssetPageSizeChange()">
+              <nb-option *ngFor="let n of assetPageSizeOptions" [value]="n">{{ n }}</nb-option>
+            </nb-select>
+            <span class="control-label">Assets</span>
+          </div>
+          <div class="users-controls-search">
+            <nb-icon icon="search-outline"></nb-icon>
+            <input
+              nbInput
+              fieldSize="small"
+              type="text"
+              placeholder="Search all fields"
+              [(ngModel)]="search"
+              (ngModelChange)="onAssetSearchChange()" />
+          </div>
+        </div>
+
+        <div class="assets-row assets-head" role="row">
+          <span class="col-asset">Asset</span>
+          <span class="col-type">Type</span>
+          <span class="col-source">Source</span>
+          <span class="col-owner">Owner</span>
+          <span class="col-domain">Domain</span>
+          <span class="col-tags">Tags</span>
+          <span class="col-rows">Rows</span>
+          <span class="col-updated">Updated</span>
+        </div>
+        <div
+          class="assets-row"
+          role="row"
+          *ngFor="let a of paginatedAssets"
+          [class.selected]="a.id === selectedAssetId"
+          (click)="selectAsset(a)">
+          <div class="col-asset">
+            <div class="asset-name">{{ a.name }}</div>
+            <div class="asset-qname">{{ a.qualifiedName }}</div>
+          </div>
+          <div class="col-type">
+            <span class="type-pill" [attr.data-type]="a.type">
+              <nb-icon [icon]="typeIcon(a.type)"></nb-icon>
+              {{ a.type }}
+            </span>
+          </div>
+          <div class="col-source">
+            <span class="source-name">{{ a.source }}</span>
+          </div>
+          <div class="col-owner">
+            <span
+              class="avatar"
+              [style.background]="'hsl(' + avatarHue(a.owner.name) + ', 60%, 92%)'"
+              [style.color]="'hsl(' + avatarHue(a.owner.name) + ', 55%, 35%)'">
+              {{ initials(a.owner.name) }}
+            </span>
+            <span class="owner-name">{{ a.owner.name }}</span>
+          </div>
+          <div class="col-domain">
+            <span class="domain-pill" [attr.data-domain]="a.domain">{{ domainLabel(a.domain) }}</span>
+          </div>
+          <div class="col-tags">
+            <span class="tag-chip" *ngFor="let t of a.tags" [attr.data-tag]="t">{{ t }}</span>
+            <span *ngIf="a.tags.length === 0" class="empty-text">—</span>
+          </div>
+          <div class="col-rows">
+            <span class="num">{{ formatRows(a.rowCount) }}</span>
+          </div>
+          <div class="col-updated">
+            <span class="num">{{ a.lastUpdated }}</span>
+          </div>
+        </div>
+
+        <div class="users-footer">
+          <div class="users-controls-pager">
+            <button
+              nbButton ghost size="tiny"
+              [disabled]="assetCurrentPage <= 1"
+              (click)="prevAssetPage()"
+              aria-label="Previous page">
+              <nb-icon icon="chevron-left-outline"></nb-icon>
+            </button>
+            <button
+              *ngFor="let p of assetPageNumbers"
+              nbButton ghost size="tiny"
+              class="page-num"
+              [class.active]="p === assetCurrentPage"
+              (click)="setAssetPage(p)">
+              {{ p }}
+            </button>
+            <button
+              nbButton ghost size="tiny"
+              [disabled]="assetCurrentPage >= assetTotalPages"
+              (click)="nextAssetPage()"
+              aria-label="Next page">
+              <nb-icon icon="chevron-right-outline"></nb-icon>
+            </button>
+          </div>
+          <span class="users-footer-count" *ngIf="filteredAssets.length > 0">
+            Assets {{ assetPageStart }}–{{ assetPageEnd }} of {{ filteredAssets.length }}
+            <span *ngIf="filteredAssets.length !== assets.length">
+              (filtered from {{ assets.length }})
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <ng-template #assetsEmpty>
+        <div class="assets-empty">
+          <nb-icon icon="search-outline"></nb-icon>
+          <p>No assets match "{{ search }}".</p>
+          <button nbButton ghost (click)="search = ''; onAssetSearchChange()">Clear search</button>
+        </div>
+      </ng-template>
+    </div>
+
+    <aside class="detail-panel" *ngIf="selectedAsset">
+      <header class="detail-header">
+        <div class="detail-title">
+          <span class="type-pill" [attr.data-type]="selectedAsset.type">
+            <nb-icon [icon]="typeIcon(selectedAsset.type)"></nb-icon>
+            {{ selectedAsset.type }}
+          </span>
+          <h6>{{ selectedAsset.name }}</h6>
+        </div>
+        <button nbButton ghost size="tiny" (click)="clearSelection()" aria-label="Close detail panel">
+          <nb-icon icon="close-outline"></nb-icon>
+        </button>
+      </header>
+
+      <div class="detail-body">
+        <div class="detail-section">
+          <code class="detail-qname">{{ selectedAsset.qualifiedName }}</code>
+        </div>
+
+        <div class="detail-section">
+          <h6 class="section-label">Description</h6>
+          <p class="detail-description">{{ selectedAsset.description }}</p>
+        </div>
+
+        <div class="detail-section detail-meta">
+          <div>
+            <dt>Source</dt>
+            <dd>{{ selectedAsset.source }}</dd>
+          </div>
+          <div>
+            <dt>Domain</dt>
+            <dd>
+              <span class="domain-pill" [attr.data-domain]="selectedAsset.domain">{{ domainLabel(selectedAsset.domain) }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Owner</dt>
+            <dd class="owner-cell">
+              <span
+                class="avatar small"
+                [style.background]="'hsl(' + avatarHue(selectedAsset.owner.name) + ', 60%, 92%)'"
+                [style.color]="'hsl(' + avatarHue(selectedAsset.owner.name) + ', 55%, 35%)'">
+                {{ initials(selectedAsset.owner.name) }}
+              </span>
+              <div class="owner-meta">
+                <span class="owner-name">{{ selectedAsset.owner.name }}</span>
+                <span class="owner-email">{{ selectedAsset.owner.email }}</span>
+              </div>
+            </dd>
+          </div>
+          <div>
+            <dt>Last updated</dt>
+            <dd class="num">{{ selectedAsset.lastUpdated }}</dd>
+          </div>
+          <div>
+            <dt>Rows</dt>
+            <dd class="num">{{ formatRows(selectedAsset.rowCount) }}</dd>
+          </div>
+          <div>
+            <dt>Size</dt>
+            <dd class="num">{{ formatSize(selectedAsset.sizeMb) }}</dd>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h6 class="section-label">Tags</h6>
+          <div class="tag-list">
+            <span class="tag-chip" *ngFor="let t of selectedAsset.tags" [attr.data-tag]="t">{{ t }}</span>
+            <span *ngIf="selectedAsset.tags.length === 0" class="empty-text">No tags</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h6 class="section-label">Schema</h6>
+          <div class="schema-list">
+            <div class="schema-row" *ngFor="let f of selectedAsset.schema">
+              <span class="schema-name">
+                {{ f.name }}
+                <nb-icon *ngIf="f.pii" icon="alert-triangle-outline" nbTooltip="PII"></nb-icon>
+              </span>
+              <span class="schema-type">{{ f.type }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section" *ngIf="selectedAsset.upstream.length > 0 || selectedAsset.downstream.length > 0">
+          <h6 class="section-label">Lineage</h6>
+          <div class="lineage-mini">
+            <div class="lineage-col" *ngIf="selectedAsset.upstream.length > 0">
+              <span class="lineage-heading">Upstream ({{ selectedAsset.upstream.length }})</span>
+              <button
+                class="lineage-chip"
+                *ngFor="let id of selectedAsset.upstream"
+                (click)="selectAsset(assetById(id)!)">
+                <nb-icon [icon]="typeIcon(assetById(id)!.type)"></nb-icon>
+                {{ assetById(id)!.name }}
+              </button>
+            </div>
+            <div class="lineage-col current">
+              <span class="lineage-heading">This asset</span>
+              <span class="lineage-chip current">
+                <nb-icon [icon]="typeIcon(selectedAsset.type)"></nb-icon>
+                {{ selectedAsset.name }}
+              </span>
+            </div>
+            <div class="lineage-col" *ngIf="selectedAsset.downstream.length > 0">
+              <span class="lineage-heading">Downstream ({{ selectedAsset.downstream.length }})</span>
+              <button
+                class="lineage-chip"
+                *ngFor="let id of selectedAsset.downstream"
+                (click)="selectAsset(assetById(id)!)">
+                <nb-icon [icon]="typeIcon(assetById(id)!.type)"></nb-icon>
+                {{ assetById(id)!.name }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============================ DOMAINS ============================ -->
+  <section class="assets-view domains-view" *ngIf="activeView === 'domains'">
+    <div class="domains-grid">
+      <article class="domain-card" *ngFor="let d of assetsByDomain" [attr.data-domain]="d.domain">
+        <header class="domain-card-head">
+          <h6>{{ d.label }}</h6>
+          <span class="domain-count">{{ d.assets.length }} {{ d.assets.length === 1 ? 'asset' : 'assets' }}</span>
+        </header>
+        <div class="domain-card-body">
+          <div *ngIf="d.assets.length === 0" class="empty-text">No assets in this domain yet.</div>
+          <ul class="domain-asset-list" *ngIf="d.assets.length > 0">
+            <li *ngFor="let a of d.assets.slice(0, 5)" (click)="selectedAssetId = a.id; activeView = 'catalog'">
+              <nb-icon [icon]="typeIcon(a.type)"></nb-icon>
+              <span class="asset-name">{{ a.name }}</span>
+              <span class="asset-source">{{ a.source }}</span>
+            </li>
+            <li *ngIf="d.assets.length > 5" class="more-row">
+              <span class="empty-text">+ {{ d.assets.length - 5 }} more</span>
+            </li>
+          </ul>
+        </div>
+        <footer class="domain-card-foot">
+          <div class="owner-stack" *ngIf="d.uniqueOwners.length > 0">
+            <span
+              class="avatar small"
+              *ngFor="let o of d.uniqueOwners.slice(0, 4)"
+              [style.background]="'hsl(' + avatarHue(o.name) + ', 60%, 92%)'"
+              [style.color]="'hsl(' + avatarHue(o.name) + ', 55%, 35%)'"
+              [nbTooltip]="o.name">
+              {{ initials(o.name) }}
+            </span>
+            <span class="owner-overflow" *ngIf="d.uniqueOwners.length > 4">+{{ d.uniqueOwners.length - 4 }}</span>
+          </div>
+          <button nbButton ghost size="small" (click)="jumpToDomain(d.domain)">
+            Open
+            <nb-icon icon="arrow-forward-outline"></nb-icon>
+          </button>
+        </footer>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============================ LINEAGE STUB ============================ -->
+  <section class="assets-view lineage-view" *ngIf="activeView === 'lineage'">
+    <div class="lineage-stub">
+      <div class="lineage-stub-header">
+        <nb-icon icon="share-outline"></nb-icon>
+        <h6>Lineage explorer</h6>
+        <span class="version-badge">v2 preview</span>
+      </div>
+      <p class="lineage-stub-intro">
+        Visualize how data flows from sources, through transforms, and into downstream views and reports.
+        The interactive graph editor lands in <strong>v2</strong>. Until then, here's a sample of what it'll look like.
+      </p>
+
+      <div class="lineage-mock">
+        <svg viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet">
+          <!-- edges -->
+          <g class="edges">
+            <path d="M 110 60 Q 200 60 280 110" />
+            <path d="M 110 110 Q 200 110 280 110" />
+            <path d="M 110 160 Q 200 160 280 110" />
+            <path d="M 350 110 Q 430 60 490 60" />
+            <path d="M 350 110 Q 430 110 490 110" />
+            <path d="M 350 110 Q 430 160 490 160" />
+          </g>
+          <!-- nodes -->
+          <g class="node source"><rect x="20" y="40" width="90" height="40" rx="6"></rect><text x="65" y="64">orders-db</text></g>
+          <g class="node source"><rect x="20" y="90" width="90" height="40" rx="6"></rect><text x="65" y="114">metrics</text></g>
+          <g class="node source"><rect x="20" y="140" width="90" height="40" rx="6"></rect><text x="65" y="164">customers</text></g>
+
+          <g class="node transform"><rect x="280" y="90" width="70" height="40" rx="6"></rect><text x="315" y="114">enrich</text></g>
+
+          <g class="node target"><rect x="490" y="40" width="90" height="40" rx="6"></rect><text x="535" y="64">CLV view</text></g>
+          <g class="node target"><rect x="490" y="90" width="90" height="40" rx="6"></rect><text x="535" y="114">attribution</text></g>
+          <g class="node target"><rect x="490" y="140" width="90" height="40" rx="6"></rect><text x="535" y="164">monthly_kpis</text></g>
+        </svg>
+      </div>
+
+      <ul class="lineage-features">
+        <li><nb-icon icon="checkmark-outline"></nb-icon> Click any asset in the catalog to see its upstream/downstream chain.</li>
+        <li><nb-icon icon="checkmark-outline"></nb-icon> Drag the canvas to pan; pinch to zoom.</li>
+        <li><nb-icon icon="checkmark-outline"></nb-icon> Hover an edge to see the job/connector that produces it.</li>
+        <li><nb-icon icon="clock-outline"></nb-icon> Filter by domain, tag, or impact-radius (coming in v2).</li>
+      </ul>
+
+      <div class="lineage-cta">
+        <button nbButton status="primary" size="small" (click)="setView('catalog')">
+          <nb-icon icon="list-outline"></nb-icon>
+          Explore the catalog
+        </button>
+        <span class="lineage-cta-hint">Each asset shows its upstream and downstream right in the side panel.</span>
+      </div>
+    </div>
+  </section>
+</div>

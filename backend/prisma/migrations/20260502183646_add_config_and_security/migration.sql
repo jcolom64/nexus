@@ -1,0 +1,62 @@
+-- CreateTable
+CREATE TABLE "system_config" (
+    "id" TEXT NOT NULL DEFAULT 'singleton',
+    "appNameOverride" TEXT NOT NULL DEFAULT 'Nexus',
+    "defaultTheme" TEXT NOT NULL DEFAULT 'default',
+    "defaultLocale" TEXT NOT NULL DEFAULT 'en-US',
+    "defaultTimezone" TEXT NOT NULL DEFAULT 'UTC',
+    "dateFormat" TEXT NOT NULL DEFAULT 'YYYY-MM-DD',
+    "firstDayOfWeek" TEXT NOT NULL DEFAULT 'sunday',
+    "defaultRefreshSeconds" INTEGER NOT NULL DEFAULT 300,
+    "defaultRetryAttempts" INTEGER NOT NULL DEFAULT 3,
+    "retryBackoffMultiplier" INTEGER NOT NULL DEFAULT 2,
+    "maxConcurrentConnectors" INTEGER NOT NULL DEFAULT 8,
+    "smtpHost" TEXT NOT NULL DEFAULT 'smtp.nexus.com',
+    "smtpPort" INTEGER NOT NULL DEFAULT 587,
+    "smtpRequireAuth" BOOLEAN NOT NULL DEFAULT true,
+    "smtpUsername" TEXT NOT NULL DEFAULT 'no-reply@nexus.com',
+    "smtpFromAddress" TEXT NOT NULL DEFAULT 'no-reply@nexus.com',
+    "notificationEvents" JSONB NOT NULL,
+    "slackWebhookUrl" TEXT NOT NULL DEFAULT '',
+    "teamsWebhookUrl" TEXT NOT NULL DEFAULT '',
+    "cacheTtlSeconds" INTEGER NOT NULL DEFAULT 600,
+    "queryTimeoutSeconds" INTEGER NOT NULL DEFAULT 30,
+    "maxUploadMb" INTEGER NOT NULL DEFAULT 100,
+    "maxConcurrentJobs" INTEGER NOT NULL DEFAULT 16,
+    "workerPoolSize" INTEGER NOT NULL DEFAULT 8,
+    "licenseKey" TEXT NOT NULL DEFAULT '',
+    "plan" TEXT NOT NULL DEFAULT 'professional',
+    "seatsUsed" INTEGER NOT NULL DEFAULT 0,
+    "seatsTotal" INTEGER NOT NULL DEFAULT 50,
+    "licenseExpires" TEXT NOT NULL DEFAULT '',
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "system_config_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "security_settings" (
+    "id" TEXT NOT NULL DEFAULT 'singleton',
+    "loginMethods" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "mfaMode" TEXT NOT NULL DEFAULT 'optional',
+    "ssoIssuer" TEXT NOT NULL DEFAULT '',
+    "sessionTimeoutMinutes" INTEGER NOT NULL DEFAULT 30,
+    "rememberMeEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "passwordMinLength" INTEGER NOT NULL DEFAULT 12,
+    "passwordRequireUppercase" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireLowercase" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireNumber" BOOLEAN NOT NULL DEFAULT true,
+    "passwordRequireSymbol" BOOLEAN NOT NULL DEFAULT false,
+    "passwordExpiryDays" INTEGER NOT NULL DEFAULT 90,
+    "passwordHistoryCount" INTEGER NOT NULL DEFAULT 5,
+    "failedAttemptThreshold" INTEGER NOT NULL DEFAULT 5,
+    "lockoutDurationMinutes" INTEGER NOT NULL DEFAULT 15,
+    "ipAllowlist" TEXT NOT NULL DEFAULT '',
+    "rateLimitPerMinute" INTEGER NOT NULL DEFAULT 600,
+    "tlsMinimumVersion" TEXT NOT NULL DEFAULT '1.2',
+    "encryptionAtRest" BOOLEAN NOT NULL DEFAULT true,
+    "auditRetentionDays" INTEGER NOT NULL DEFAULT 365,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "security_settings_pkey" PRIMARY KEY ("id")
+);

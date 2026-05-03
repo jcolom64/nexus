@@ -1,0 +1,194 @@
+<div class="header-container">
+  <div class="logo-container">
+    <a class="logo" href="#" (click)="navigateHome()">
+      <img src="assets/images/nexus-logo.png" alt="Nexus" class="nexus-logo">
+      <span class="nexus-text">{{ appName }}</span>
+    </a>
+    <span class="version">v1.0.0</span>
+  </div>
+</div>
+
+<div class="header-container">
+  <nb-actions size="small">
+    <nb-action class="control-item">
+      <button nbButton ghost size="small" class="whats-new-btn" (click)="onWhatsNewClick()">
+        <nb-icon icon="flash-outline"></nb-icon>
+        What's New
+      </button>
+    </nb-action>
+    <nb-action class="control-item theme-toggle-action">
+      <button
+        type="button"
+        class="theme-toggle"
+        [class.is-dark]="currentTheme === 'dark'"
+        (click)="toggleTheme()"
+        [attr.aria-label]="currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+        [attr.aria-pressed]="currentTheme === 'dark'">
+        <nb-icon class="theme-toggle-icon left" icon="sun-outline"></nb-icon>
+        <nb-icon class="theme-toggle-icon right" icon="moon-outline"></nb-icon>
+        <span class="theme-toggle-thumb"></span>
+      </button>
+    </nb-action>
+    <nb-action class="user-action" *nbIsGranted="['view', 'user']" >
+      <nb-user [nbContextMenu]="userMenu"
+               [onlyPicture]="false"
+               [name]="profile.displayName"
+               [title]="profile.jobTitle">
+      </nb-user>
+    </nb-action>
+  </nb-actions>
+</div>
+
+<!-- Profile modal -->
+<div class="profile-modal-overlay" *ngIf="profileModalOpen">
+  <div class="profile-modal">
+    <header class="profile-modal-head">
+      <span
+        class="profile-avatar"
+        [style.background]="'hsl(' + avatarHue(profile.displayName) + ', 60%, 92%)'"
+        [style.color]="'hsl(' + avatarHue(profile.displayName) + ', 55%, 35%)'">
+        {{ initials(profile.displayName) }}
+      </span>
+      <div class="profile-head-meta">
+        <h6>{{ profile.displayName }}</h6>
+        <span class="profile-head-email">{{ profile.email }}</span>
+        <span class="profile-head-role">{{ profile.role }} · member since {{ profile.memberSince }}</span>
+      </div>
+      <button type="button" class="profile-close" (click)="closeProfile()" aria-label="Close profile">
+        <nb-icon icon="close-outline"></nb-icon>
+      </button>
+    </header>
+
+    <div class="profile-body">
+      <section class="profile-section">
+        <h6 class="section-title">Personal info</h6>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Display name</span>
+            <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="profile.displayName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input nbInput fullWidth fieldSize="small" type="email" [(ngModel)]="profile.email" />
+          </label>
+          <label class="field">
+            <span class="field-label">Job title</span>
+            <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="profile.jobTitle" />
+          </label>
+          <div class="field readonly">
+            <span class="field-label">Role</span>
+            <div class="readonly-value">
+              <span class="role-pill">{{ profile.role }}</span>
+              <span class="readonly-hint">Set in System &rarr; User Groups</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="profile-section">
+        <h6 class="section-title">Preferences</h6>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Locale</span>
+            <nb-select size="small" [(selected)]="profile.locale">
+              <nb-option *ngFor="let l of localeOptions" [value]="l">{{ l }}</nb-option>
+            </nb-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Timezone</span>
+            <nb-select size="small" [(selected)]="profile.timezone">
+              <nb-option *ngFor="let z of timezoneOptions" [value]="z">{{ z }}</nb-option>
+            </nb-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Date format</span>
+            <nb-select size="small" [(selected)]="profile.dateFormat">
+              <nb-option *ngFor="let f of dateFormatOptions" [value]="f">{{ f }}</nb-option>
+            </nb-select>
+          </label>
+        </div>
+      </section>
+
+      <section class="profile-section">
+        <h6 class="section-title">Notifications</h6>
+        <div class="field-grid">
+          <label class="field">
+            <span class="field-label">Email digest</span>
+            <nb-select size="small" [(selected)]="profile.emailDigest">
+              <nb-option value="daily">Daily</nb-option>
+              <nb-option value="weekly">Weekly</nb-option>
+              <nb-option value="never">Never</nb-option>
+            </nb-select>
+          </label>
+          <div class="field full">
+            <span class="field-label">Email me when&hellip;</span>
+            <div class="check-stack">
+              <nb-checkbox [(checked)]="profile.emailMentions">Someone mentions me</nb-checkbox>
+              <nb-checkbox [(checked)]="profile.emailAlerts">An alert involves a resource I own</nb-checkbox>
+              <nb-checkbox [(checked)]="profile.emailSystem">There's a system announcement</nb-checkbox>
+            </div>
+          </div>
+          <div class="field full">
+            <span class="field-label">In-app</span>
+            <nb-toggle [(checked)]="profile.inAppDoNotDisturb">
+              Do not disturb (mute in-app pop-ups)
+            </nb-toggle>
+          </div>
+        </div>
+      </section>
+
+      <section class="profile-section">
+        <h6 class="section-title">Security</h6>
+        <div class="security-row">
+          <div>
+            <div class="security-label">Password</div>
+            <div class="security-hint">Last changed 47 days ago.</div>
+          </div>
+          <button nbButton ghost size="small" (click)="changePassword()">
+            <nb-icon icon="lock-outline"></nb-icon>
+            Change password
+          </button>
+        </div>
+        <div class="security-row">
+          <div>
+            <div class="security-label">Multi-factor authentication</div>
+            <div class="security-hint">
+              <span [class.mfa-on]="profile.mfaEnabled" [class.mfa-off]="!profile.mfaEnabled">
+                {{ profile.mfaEnabled ? 'Enabled — TOTP authenticator' : 'Disabled — only password is required' }}
+              </span>
+            </div>
+          </div>
+          <button
+            nbButton
+            size="small"
+            [status]="profile.mfaEnabled ? 'basic' : 'primary'"
+            (click)="toggleMfa()">
+            <nb-icon [icon]="profile.mfaEnabled ? 'shield-off-outline' : 'shield-outline'"></nb-icon>
+            {{ profile.mfaEnabled ? 'Disable MFA' : 'Enable MFA' }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="profile-modal-foot">
+      <span class="profile-foot-status" *ngIf="profileDirty && !profileSaved">unsaved changes</span>
+      <span class="profile-foot-status saved" *ngIf="profileSaved">
+        <nb-icon icon="checkmark-circle-2-outline"></nb-icon>
+        Saved
+      </span>
+      <div class="profile-foot-actions">
+        <button nbButton ghost size="small" [disabled]="!profileDirty" (click)="resetProfile()">Discard</button>
+        <button nbButton ghost size="small" (click)="closeProfile()">Cancel</button>
+        <button
+          nbButton
+          status="primary"
+          size="small"
+          [disabled]="!profileDirty || !canSaveProfile()"
+          (click)="saveProfile()">
+          <nb-icon icon="save-outline"></nb-icon>
+          Save
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,1553 @@
+<div class="modal-overlay" *ngIf="groupModalOpen && activeTab === 'groups'">
+  <div class="modal-dialog">
+    <header class="modal-header">
+      <nb-icon icon="people-outline"></nb-icon>
+      <h6>{{ editingGroup ? 'Edit User Group' : 'Add a New User Group' }}</h6>
+      <button nbButton ghost size="tiny" class="modal-close" (click)="closeGroupModal()" aria-label="Close">
+        <nb-icon icon="close-outline"></nb-icon>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <p class="modal-intro">
+        User groups enable you to define the accounts and associated permissions accessible to users
+        within each group. Select one or more accounts from the list below, then choose the permissions
+        you wish to assign to each account.
+      </p>
+
+      <label class="form-field">
+        <span class="field-label">
+          Group Name <span class="required">*</span>
+          <span class="field-counter">{{ groupForm.name.length }} / {{ groupNameMax }}</span>
+        </span>
+        <input
+          nbInput
+          fullWidth
+          fieldSize="small"
+          type="text"
+          placeholder="Enter a name for the group (max 128 characters)"
+          [maxlength]="groupNameMax"
+          [(ngModel)]="groupForm.name"
+          (ngModelChange)="markGroupFormDirty()" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">
+          Group Description
+          <span class="field-counter">{{ groupForm.description.length }} / {{ groupDescriptionMax }}</span>
+        </span>
+        <textarea
+          nbInput
+          fullWidth
+          fieldSize="small"
+          rows="3"
+          placeholder="Enter a description for the group (max 5000 characters)"
+          [maxlength]="groupDescriptionMax"
+          [(ngModel)]="groupForm.description"
+          (ngModelChange)="markGroupFormDirty()"></textarea>
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">System Roles</span>
+        <nb-select
+          size="small"
+          multiple
+          placeholder="Select system roles for this group"
+          [(selected)]="groupForm.systemRoles"
+          (selectedChange)="markGroupFormDirty()">
+          <nb-option *ngFor="let r of systemRoleOptions" [value]="r">
+            {{ r }} <span class="role-hint">— {{ systemRoleDescriptions[r] }}</span>
+          </nb-option>
+        </nb-select>
+      </label>
+
+      <div class="form-field">
+        <span class="field-label">Account Permissions</span>
+
+        <div class="warning-banner" *ngIf="availableAccounts.length === 0">
+          <nb-icon icon="alert-triangle-outline"></nb-icon>
+          <span>At present, there are no standard accounts against which group permissions can be associated.</span>
+        </div>
+
+        <div class="account-perms" *ngIf="availableAccounts.length > 0">
+          <div class="account-perm-row" *ngFor="let acc of availableAccounts">
+            <nb-checkbox
+              [checked]="isAccountInGroup(acc.id)"
+              (checkedChange)="toggleAccountInGroup(acc.id, $event)">
+              {{ acc.name }}
+            </nb-checkbox>
+            <nb-select
+              size="small"
+              placeholder="Select role"
+              [disabled]="!isAccountInGroup(acc.id)"
+              [selected]="getAccountRole(acc.id)"
+              (selectedChange)="setAccountRole(acc.id, $event)">
+              <nb-option *ngFor="let r of systemRoleOptions" [value]="r">{{ r }}</nb-option>
+            </nb-select>
+          </div>
+        </div>
+      </div>
+
+      <label class="form-field">
+        <span class="field-label">
+          Members
+          <span class="field-counter" *ngIf="apiUsers.length === 0">no users loaded</span>
+        </span>
+        <nb-select
+          size="small"
+          multiple
+          placeholder="Assign users to this group"
+          [(selected)]="groupForm.memberEmails"
+          (selectedChange)="markGroupFormDirty()"
+          [disabled]="apiUsers.length === 0">
+          <nb-option *ngFor="let u of apiUsers" [value]="u.email">
+            {{ u.name }} <span class="role-hint">— {{ u.email }}</span>
+          </nb-option>
+        </nb-select>
+      </label>
+    </div>
+
+    <footer class="modal-footer">
+      <button nbButton ghost size="small" (click)="closeGroupModal()">Cancel</button>
+      <button
+        nbButton
+        status="success"
+        size="small"
+        [disabled]="!canSaveGroup()"
+        (click)="saveGroup()">
+        <nb-icon icon="checkmark-outline"></nb-icon>
+        Save
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Add / Edit user modal — Account tab -->
+<div class="modal-overlay" *ngIf="userModalOpen">
+  <div class="modal-dialog">
+    <header class="modal-header">
+      <nb-icon icon="person-outline"></nb-icon>
+      <h6>{{ editingUser ? 'Edit User' : 'Add User' }}</h6>
+      <button nbButton ghost size="tiny" class="modal-close" (click)="closeUserModal()" aria-label="Close">
+        <nb-icon icon="close-outline"></nb-icon>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <p class="modal-intro" *ngIf="!editingUser">
+        Create a new user account. The user will be able to sign in with the email and password you set.
+      </p>
+      <p class="modal-intro" *ngIf="editingUser">
+        Update <strong>{{ editingUser.email }}</strong>. Leave the password blank to keep it unchanged.
+      </p>
+
+      <div class="warning-banner" *ngIf="userFormError">
+        <nb-icon icon="alert-triangle-outline"></nb-icon>
+        <span>{{ userFormError }}</span>
+      </div>
+
+      <div class="warning-banner" *ngIf="editWouldRemoveLastAdmin">
+        <nb-icon icon="alert-triangle-outline"></nb-icon>
+        <span>
+          This is the only active administrator. Changing the role away from
+          <strong>Administrator</strong> or the status away from <strong>Active</strong>
+          would lock everyone out. Promote another user to Administrator first.
+        </span>
+      </div>
+
+      <label class="form-field">
+        <span class="field-label">Name <span class="required">*</span></span>
+        <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="userForm.name" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Email <span class="required">*</span></span>
+        <input nbInput fullWidth fieldSize="small" type="email" [(ngModel)]="userForm.email" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">
+          Password
+          <span class="required" *ngIf="!editingUser">*</span>
+          <span class="field-counter" *ngIf="editingUser">leave blank to keep current</span>
+          <span class="field-counter" *ngIf="!editingUser && userForm.password.length > 0 && userForm.password.length < 8">min 8 chars</span>
+        </span>
+        <input nbInput fullWidth fieldSize="small" type="password" autocomplete="new-password" [(ngModel)]="userForm.password" />
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Role</span>
+        <nb-select size="small" [(selected)]="userForm.role">
+          <nb-option *ngFor="let r of apiRoleOptions" [value]="r">{{ apiRoleLabel(r) }}</nb-option>
+        </nb-select>
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">Status</span>
+        <nb-select size="small" [(selected)]="userForm.state">
+          <nb-option *ngFor="let s of apiStateOptions" [value]="s">{{ apiStateLabel(s) }}</nb-option>
+        </nb-select>
+      </label>
+
+      <label class="form-field">
+        <span class="field-label">
+          Groups
+          <span class="field-counter" *ngIf="apiGroups.length === 0">no groups exist yet</span>
+        </span>
+        <nb-select
+          size="small"
+          multiple
+          placeholder="Assign user to groups"
+          [(selected)]="userForm.groupIds"
+          [disabled]="apiGroups.length === 0">
+          <nb-option *ngFor="let g of apiGroups" [value]="g.id">{{ g.name }}</nb-option>
+        </nb-select>
+      </label>
+    </div>
+
+    <footer class="modal-footer">
+      <button nbButton ghost size="small" (click)="closeUserModal()">Cancel</button>
+      <button
+        nbButton
+        status="success"
+        size="small"
+        [disabled]="!canSaveUser() || userFormSaving"
+        (click)="saveUser()">
+        <nb-icon icon="checkmark-outline"></nb-icon>
+        {{ userFormSaving ? 'Saving…' : (editingUser ? 'Save changes' : 'Create user') }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<div class="system-container ngx-system-fullbleed">
+  <div class="system-header">
+    <h6>System Administration</h6>
+  </div>
+  <div class="system-body">
+        <div class="system-content">
+          <div class="custom-tabs-layout">
+            <div class="tabs-sidebar">
+              <div class="tab-nav">
+                <a class="tab-link active" (click)="selectTab('health')" [class.active]="activeTab === 'health'">
+                  <nb-icon icon="activity-outline"></nb-icon>
+                  Health
+                </a>
+                <a class="tab-link" (click)="selectTab('account')" [class.active]="activeTab === 'account'">
+                  <nb-icon icon="person-outline"></nb-icon>
+                  Account
+                </a>
+                <a class="tab-link" (click)="selectTab('groups')" [class.active]="activeTab === 'groups'">
+                  <nb-icon icon="people-outline"></nb-icon>
+                  User Groups
+                </a>
+                <a class="tab-link" (click)="selectTab('security')" [class.active]="activeTab === 'security'">
+                  <nb-icon icon="shield-outline"></nb-icon>
+                  Security
+                </a>
+                <a class="tab-link" (click)="selectTab('config')" [class.active]="activeTab === 'config'">
+                  <nb-icon icon="settings-outline"></nb-icon>
+                  Configuration
+                </a>
+                <a class="tab-link" (click)="selectTab('audit')" [class.active]="activeTab === 'audit'">
+                  <nb-icon icon="file-text-outline"></nb-icon>
+                  Audit
+                </a>
+              </div>
+            </div>
+            <div class="tab-content-area">
+              <div class="health-dashboard" *ngIf="activeTab === 'health'">
+                <section class="health-section status-strip">
+                  <div class="status-pill" *ngFor="let svc of serviceStatuses" [class.is-mock]="svc.mock">
+                    <span class="status-dot" [ngClass]="'dot-' + svc.status"></span>
+                    <div class="status-meta">
+                      <div class="status-name">
+                        {{ svc.name }}
+                        <span class="mock-tag" *ngIf="svc.mock" title="Placeholder — not wired to a real subsystem yet">DEMO</span>
+                      </div>
+                      <div class="status-label">{{ svc.label }}</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="health-section metrics-grid two-col">
+                  <nb-card class="metric-card split-card">
+                    <nb-card-body>
+                      <div class="metric-head">
+                        <nb-icon icon="activity-outline" status="success"></nb-icon>
+                        <span class="metric-name">CPU</span>
+                      </div>
+                      <ng-container *ngIf="healthMetrics; else metricsLoading">
+                        <div class="split-row">
+                          <span class="split-label">App</span>
+                          <span class="split-value">{{ healthMetrics.app.cpuPercent }}%</span>
+                          <nb-progress-bar
+                            class="split-bar"
+                            [value]="healthMetrics.app.cpuPercent"
+                            [status]="percentStatus(healthMetrics.app.cpuPercent)"
+                            size="tiny">
+                          </nb-progress-bar>
+                        </div>
+                        <div class="split-row">
+                          <span class="split-label">System</span>
+                          <span class="split-value">{{ healthMetrics.system.cpuPercent }}%</span>
+                          <nb-progress-bar
+                            class="split-bar"
+                            [value]="healthMetrics.system.cpuPercent"
+                            [status]="percentStatus(healthMetrics.system.cpuPercent)"
+                            size="tiny">
+                          </nb-progress-bar>
+                        </div>
+                        <div class="metric-detail">
+                          {{ healthMetrics.cores }} cores · load avg {{ healthMetrics.loadAvg1m }}
+                        </div>
+                      </ng-container>
+                    </nb-card-body>
+                  </nb-card>
+
+                  <nb-card class="metric-card split-card">
+                    <nb-card-body>
+                      <div class="metric-head">
+                        <nb-icon icon="hard-drive-outline" status="success"></nb-icon>
+                        <span class="metric-name">Memory</span>
+                      </div>
+                      <ng-container *ngIf="healthMetrics; else metricsLoading">
+                        <div class="split-row">
+                          <span class="split-label">App</span>
+                          <span class="split-value">{{ formatBytes(healthMetrics.app.memoryRssBytes) }}</span>
+                          <nb-progress-bar
+                            class="split-bar"
+                            [value]="appMemoryPercent()"
+                            [status]="percentStatus(appMemoryPercent())"
+                            size="tiny">
+                          </nb-progress-bar>
+                        </div>
+                        <div class="split-row">
+                          <span class="split-label">System</span>
+                          <span class="split-value">{{ formatBytes(healthMetrics.system.memoryUsedBytes) }}</span>
+                          <nb-progress-bar
+                            class="split-bar"
+                            [value]="systemMemoryPercent()"
+                            [status]="percentStatus(systemMemoryPercent())"
+                            size="tiny">
+                          </nb-progress-bar>
+                        </div>
+                        <div class="metric-detail">
+                          of {{ formatBytes(healthMetrics.system.memoryTotalBytes) }} host total
+                        </div>
+                      </ng-container>
+                    </nb-card-body>
+                  </nb-card>
+
+                  <ng-template #metricsLoading>
+                    <div class="metric-detail">Loading metrics&hellip;</div>
+                  </ng-template>
+                </section>
+
+                <p class="metrics-footnote">
+                  <nb-icon icon="info-outline"></nb-icon>
+                  System values reflect the host kernel; in containerised deployments they
+                  may overstate available CPU and memory relative to the cgroup limit.
+                </p>
+
+                <section class="health-section info-events-row">
+                  <nb-card class="info-card">
+                    <nb-card-header>System Information</nb-card-header>
+                    <nb-card-body>
+                      <dl class="info-list">
+                        <ng-container *ngFor="let item of systemInfo">
+                          <dt>{{ item.label }}</dt>
+                          <dd>{{ item.value }}</dd>
+                        </ng-container>
+                      </dl>
+                    </nb-card-body>
+                  </nb-card>
+
+                  <nb-card class="events-card">
+                    <nb-card-header>
+                      <span>Recent Events</span>
+                      <div class="events-controls">
+                        <span class="control-label">Last</span>
+                        <nb-select
+                          size="tiny"
+                          [(selected)]="recentEventsCount"
+                          (selectedChange)="onRecentEventsCountChange()">
+                          <nb-option *ngFor="let n of recentEventsCountOptions" [value]="n">{{ n }}</nb-option>
+                        </nb-select>
+                        <span class="control-label">events</span>
+                      </div>
+                    </nb-card-header>
+                    <nb-card-body>
+                      <div *ngIf="recentEventsError" class="warning-banner">
+                        <nb-icon icon="alert-triangle-outline"></nb-icon>
+                        <span>{{ recentEventsError }}</span>
+                      </div>
+                      <nb-list *ngIf="!recentEventsError">
+                        <nb-list-item *ngFor="let event of recentEvents" class="event-item">
+                          <nb-icon [icon]="statusIcon(event.severity)" [status]="event.severity"></nb-icon>
+                          <div class="event-body">
+                            <div class="event-line">
+                              <span class="event-source">{{ event.source }}</span>
+                              <span class="event-time">{{ eventTimestamp(event.timestamp) }}</span>
+                            </div>
+                            <div class="event-message">{{ event.message }}</div>
+                          </div>
+                        </nb-list-item>
+                        <div *ngIf="!recentEventsLoading && recentEvents.length === 0" class="events-empty">
+                          No audit events yet.
+                        </div>
+                      </nb-list>
+                    </nb-card-body>
+                  </nb-card>
+                </section>
+              </div>
+              <div class="account-tab" *ngIf="activeTab === 'account'">
+                <header class="account-toolbar">
+                  <div class="account-title">
+                    <h6>Users</h6>
+                  </div>
+                  <div class="account-actions">
+                    <button nbButton ghost size="small" (click)="loadApiUsers()" nbTooltip="Refresh">
+                      <nb-icon icon="refresh-outline"></nb-icon>
+                    </button>
+                    <button nbButton status="primary" size="small" (click)="openAddUser()">
+                      <nb-icon icon="plus-outline"></nb-icon>
+                      Add User
+                    </button>
+                  </div>
+                </header>
+
+                <p class="account-intro">
+                  Your accounts are shown below. Click <strong>Edit</strong> to view and modify their associated
+                  users and roles.
+                </p>
+
+                <div *ngIf="apiUsersError" class="warning-banner">
+                  <nb-icon icon="alert-triangle-outline"></nb-icon>
+                  <span>{{ apiUsersError }}</span>
+                </div>
+
+                <div class="users-table">
+                  <div class="users-controls">
+                    <div class="users-controls-left">
+                      <span class="control-label">Display</span>
+                      <nb-select
+                        size="small"
+                        [(selected)]="userPageSize"
+                        (selectedChange)="onUserPageSizeChange()">
+                        <nb-option *ngFor="let n of userPageSizeOptions" [value]="n">{{ n }}</nb-option>
+                      </nb-select>
+                      <span class="control-label">Accounts</span>
+                    </div>
+                    <div class="users-controls-search">
+                      <nb-icon icon="search-outline"></nb-icon>
+                      <input
+                        nbInput
+                        fieldSize="small"
+                        type="text"
+                        placeholder="Search all fields"
+                        [(ngModel)]="userSearch"
+                        (ngModelChange)="onUserSearchChange()" />
+                    </div>
+                  </div>
+
+                  <div class="users-row users-head" role="row">
+                    <span class="col-user">User</span>
+                    <span class="col-role">Role</span>
+                    <span class="col-groups">Groups</span>
+                    <span class="col-status">Status</span>
+                    <span class="col-login">Last login</span>
+                    <span class="col-actions" aria-label="Actions"></span>
+                  </div>
+                  <div
+                    *ngFor="let user of paginatedApiUsers"
+                    class="users-row"
+                    role="row">
+                    <div class="col-user">
+                      <span
+                        class="avatar"
+                        [style.background]="'hsl(' + avatarHue(user.name) + ', 60%, 92%)'"
+                        [style.color]="'hsl(' + avatarHue(user.name) + ', 55%, 35%)'">
+                        {{ initials(user.name) }}
+                      </span>
+                      <div class="user-meta">
+                        <div class="user-name">{{ user.name }}</div>
+                        <div class="user-email">{{ user.email }}</div>
+                      </div>
+                    </div>
+                    <div class="col-role">
+                      <span class="role-chip" [attr.data-role]="apiRoleLabel(user.role)">{{ apiRoleLabel(user.role) }}</span>
+                    </div>
+                    <div class="col-groups">
+                      <span class="group-chip" *ngFor="let g of groupsForUser(user)">{{ g }}</span>
+                      <span *ngIf="groupsForUser(user).length === 0" class="empty-text">—</span>
+                    </div>
+                    <div class="col-status">
+                      <span class="state-pill" [attr.data-state]="apiStateForPill(user.state)">
+                        <span class="state-dot"></span>
+                        {{ apiStateLabel(user.state) }}
+                      </span>
+                    </div>
+                    <div class="col-login">
+                      <span class="login-time">{{ apiLastLoginLabel(user.lastLoginAt) }}</span>
+                    </div>
+                    <div class="col-actions">
+                      <button
+                        nbButton ghost size="tiny" class="row-action"
+                        nbTooltip="Edit user"
+                        (click)="openEditUser(user)">
+                        <nb-icon icon="edit-2-outline"></nb-icon>
+                      </button>
+                      <button
+                        nbButton ghost size="tiny" class="row-action danger"
+                        [disabled]="isLastActiveAdmin(user)"
+                        [nbTooltip]="isLastActiveAdmin(user) ? 'Cannot delete the last active administrator' : 'Delete user'"
+                        (click)="deleteApiUser(user)">
+                        <nb-icon icon="trash-2-outline"></nb-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div *ngIf="!apiUsersLoading && filteredApiUsers.length === 0" class="users-empty">
+                    <nb-icon icon="people-outline"></nb-icon>
+                    <span *ngIf="userSearch">No users match "{{ userSearch }}"</span>
+                    <span *ngIf="!userSearch">No users yet — click "Add User" to create the first one.</span>
+                  </div>
+
+                  <div *ngIf="apiUsersLoading" class="users-empty">
+                    <nb-icon icon="loader-outline"></nb-icon>
+                    <span>Loading&hellip;</span>
+                  </div>
+
+                  <div class="users-footer">
+                    <div class="users-controls-pager">
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="userCurrentPage <= 1"
+                        (click)="prevUserPage()"
+                        aria-label="Previous page">
+                        <nb-icon icon="chevron-left-outline"></nb-icon>
+                      </button>
+                      <button
+                        *ngFor="let p of userPageNumbers"
+                        nbButton ghost size="tiny"
+                        class="page-num"
+                        [class.active]="p === userCurrentPage"
+                        (click)="setUserPage(p)">
+                        {{ p }}
+                      </button>
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="userCurrentPage >= userTotalPages"
+                        (click)="nextUserPage()"
+                        aria-label="Next page">
+                        <nb-icon icon="chevron-right-outline"></nb-icon>
+                      </button>
+                    </div>
+                    <span class="users-footer-count" *ngIf="filteredApiUsers.length > 0">
+                      Users {{ userPageStart }}–{{ userPageEnd }} of {{ filteredApiUsers.length }}
+                      <span *ngIf="filteredApiUsers.length !== apiUsers.length">
+                        (filtered from {{ apiUsers.length }})
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="account-tab groups-tab" *ngIf="activeTab === 'groups'">
+                <header class="account-toolbar">
+                  <div class="account-title">
+                    <h6>User Groups</h6>
+                  </div>
+                  <div class="account-actions">
+                    <button nbButton status="primary" size="small" (click)="openAddGroup()">
+                      <nb-icon icon="plus-outline"></nb-icon>
+                      Add User Group
+                    </button>
+                  </div>
+                </header>
+
+                <p class="account-intro">
+                  User groups define account access and role-based permissions. Click <strong>Edit</strong> on a row
+                  to view or modify a group's details. Users are linked through native user editing controls or
+                  your SSO/LDAP configuration.
+                </p>
+
+                <div class="users-table groups-table" *ngIf="sortedGroups.length > 0; else groupsEmpty">
+                  <div class="users-controls">
+                    <div class="users-controls-left">
+                      <span class="control-label">Display</span>
+                      <nb-select
+                        size="small"
+                        [(selected)]="groupPageSize"
+                        (selectedChange)="onGroupPageSizeChange()">
+                        <nb-option *ngFor="let n of groupPageSizeOptions" [value]="n">{{ n }}</nb-option>
+                      </nb-select>
+                      <span class="control-label">Groups</span>
+                    </div>
+                    <div class="users-controls-search">
+                      <nb-icon icon="search-outline"></nb-icon>
+                      <input
+                        nbInput
+                        fieldSize="small"
+                        type="text"
+                        placeholder="Search all fields"
+                        [(ngModel)]="groupSearch"
+                        (ngModelChange)="onGroupSearchChange()" />
+                    </div>
+                  </div>
+
+                  <div class="users-row users-head" role="row">
+                    <button class="col-name sortable" (click)="sortBy('name')">
+                      Name
+                      <nb-icon
+                        *ngIf="groupSortKey === 'name'"
+                        [icon]="groupSortDir === 'asc' ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+                    </button>
+                    <button class="col-desc sortable" (click)="sortBy('description')">
+                      Description
+                      <nb-icon
+                        *ngIf="groupSortKey === 'description'"
+                        [icon]="groupSortDir === 'asc' ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+                    </button>
+                    <button class="col-accounts sortable" (click)="sortBy('accountSummary')">
+                      Account(s) and Role(s)
+                      <nb-icon
+                        *ngIf="groupSortKey === 'accountSummary'"
+                        [icon]="groupSortDir === 'asc' ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+                    </button>
+                    <button class="col-created sortable" (click)="sortBy('created')">
+                      Created
+                      <nb-icon
+                        *ngIf="groupSortKey === 'created'"
+                        [icon]="groupSortDir === 'asc' ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+                    </button>
+                    <button class="col-updated sortable" (click)="sortBy('lastUpdated')">
+                      Last Updated
+                      <nb-icon
+                        *ngIf="groupSortKey === 'lastUpdated'"
+                        [icon]="groupSortDir === 'asc' ? 'arrow-upward-outline' : 'arrow-downward-outline'"></nb-icon>
+                    </button>
+                    <span class="col-row-actions" aria-label="Actions"></span>
+                  </div>
+                  <div class="users-row" *ngFor="let group of paginatedGroups" role="row">
+                    <div class="col-name">
+                      <div class="group-name">{{ group.name }}</div>
+                      <div class="group-roles">
+                        <span class="role-chip" *ngFor="let r of group.systemRoles" [attr.data-role]="r">{{ r }}</span>
+                      </div>
+                    </div>
+                    <div class="col-desc" [nbTooltip]="group.description">
+                      <span class="ellipsis">{{ group.description }}</span>
+                    </div>
+                    <div class="col-accounts">
+                      <div class="account-pair" *ngFor="let pair of accountSummary(group)">
+                        <span class="account-name">{{ pair.account }}</span>
+                        <span class="account-arrow">→</span>
+                        <span class="role-chip" [attr.data-role]="pair.role">{{ pair.role }}</span>
+                      </div>
+                      <span *ngIf="group.accountAssignments.length === 0" class="empty-text">—</span>
+                    </div>
+                    <div class="col-created">
+                      <span class="login-time">{{ group.created }}</span>
+                    </div>
+                    <div class="col-updated">
+                      <span class="login-time">{{ group.lastUpdated }}</span>
+                    </div>
+                    <div class="col-row-actions">
+                      <button
+                        type="button"
+                        class="row-action plain-action-btn"
+                        title="Edit group"
+                        (click)="openEditGroup(group); $event.stopPropagation()">
+                        <nb-icon icon="edit-2-outline"></nb-icon>
+                      </button>
+                      <button
+                        type="button"
+                        class="row-action plain-action-btn danger"
+                        title="Delete group"
+                        (click)="deleteGroup(group); $event.stopPropagation()">
+                        <nb-icon icon="trash-2-outline"></nb-icon>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="users-footer">
+                    <div class="users-controls-pager">
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="groupCurrentPage <= 1"
+                        (click)="prevGroupPage()"
+                        aria-label="Previous page">
+                        <nb-icon icon="chevron-left-outline"></nb-icon>
+                      </button>
+                      <button
+                        *ngFor="let p of groupPageNumbers"
+                        nbButton ghost size="tiny"
+                        class="page-num"
+                        [class.active]="p === groupCurrentPage"
+                        (click)="setGroupPage(p)">
+                        {{ p }}
+                      </button>
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="groupCurrentPage >= groupTotalPages"
+                        (click)="nextGroupPage()"
+                        aria-label="Next page">
+                        <nb-icon icon="chevron-right-outline"></nb-icon>
+                      </button>
+                    </div>
+                    <span class="users-footer-count" *ngIf="sortedGroups.length > 0">
+                      Groups {{ groupPageStart }}–{{ groupPageEnd }} of {{ sortedGroups.length }}
+                      <span *ngIf="sortedGroups.length !== userGroups.length">
+                        (filtered from {{ userGroups.length }})
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                <ng-template #groupsEmpty>
+                  <div class="groups-empty">
+                    <nb-icon icon="people-outline"></nb-icon>
+                    <p>Hmm, it looks like this account doesn't have any user groups yet&hellip;</p>
+                    <button nbButton status="primary" (click)="openAddGroup()">Let's add one!</button>
+                  </div>
+                </ng-template>
+              </div>
+              <div class="account-tab security-tab" *ngIf="activeTab === 'security'">
+                <header class="account-toolbar">
+                  <div class="account-title">
+                    <h6>Security Policies</h6>
+                    <span class="account-count" *ngIf="securityDirty">unsaved changes</span>
+                    <span class="account-count saved-flash" *ngIf="securitySaved">
+                      <nb-icon icon="checkmark-circle-2-outline"></nb-icon>
+                      Saved
+                    </span>
+                  </div>
+                  <div class="account-actions">
+                    <button nbButton ghost size="small" (click)="restoreSecurityDefaults()">
+                      <nb-icon icon="refresh-outline"></nb-icon>
+                      Restore defaults
+                    </button>
+                    <button nbButton ghost size="small" [disabled]="!securityDirty" (click)="resetSecuritySettings()">
+                      Discard
+                    </button>
+                    <button nbButton status="primary" size="small" [disabled]="!securityDirty || securitySettingsSaving" (click)="saveSecuritySettings()">
+                      <nb-icon icon="save-outline"></nb-icon>
+                      {{ securitySettingsSaving ? 'Saving…' : 'Save changes' }}
+                    </button>
+                  </div>
+                </header>
+
+                <div *ngIf="securitySettingsError" class="warning-banner">
+                  <nb-icon icon="alert-triangle-outline"></nb-icon>
+                  <span>{{ securitySettingsError }}</span>
+                </div>
+
+                <div class="info-banner" role="note">
+                  <nb-icon icon="info-outline"></nb-icon>
+                  <div>
+                    These settings control authentication, password rules, lockout, network access, and compliance
+                    policies for the entire Nexus tenant. Changes apply on save and audit-logged.
+                  </div>
+                </div>
+
+                <div class="settings-grid">
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="lock-outline"></nb-icon>
+                      <h6>Authentication</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Allowed login methods</span>
+                          <span class="label-help">Users may sign in using any enabled method.</span>
+                        </div>
+                        <div class="setting-control method-toggles">
+                          <nb-toggle
+                            *ngFor="let method of loginMethodOptions"
+                            [checked]="isLoginMethodEnabled(method.value)"
+                            (checkedChange)="toggleLoginMethod(method.value, $event)">
+                            {{ method.label }}
+                          </nb-toggle>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Multi-factor authentication</span>
+                          <span class="label-help">Require a second factor at login.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="securitySettings.mfaMode">
+                            <nb-option value="off">Off</nb-option>
+                            <nb-option value="optional">Optional (per-user)</nb-option>
+                            <nb-option value="required">Required for all users</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row" *ngIf="isLoginMethodEnabled('sso-saml')">
+                        <div class="setting-label">
+                          <span class="label-title">SSO issuer URL</span>
+                          <span class="label-help">SAML metadata endpoint.</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="url" [(ngModel)]="securitySettings.ssoIssuer" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Session timeout</span>
+                          <span class="label-help">Idle session lifetime in minutes.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="5" max="1440" [(ngModel)]="securitySettings.sessionTimeoutMinutes" />
+                          <span class="unit">min</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">"Remember me" support</span>
+                          <span class="label-help">Allow long-lived sessions on trusted devices.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-toggle [(checked)]="securitySettings.rememberMeEnabled"></nb-toggle>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="shield-outline"></nb-icon>
+                      <h6>Password policy</h6>
+                      <span class="strength-pill" [attr.data-strength]="passwordStrengthHint().toLowerCase()">{{ passwordStrengthHint() }}</span>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Minimum length</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="8" max="64" [(ngModel)]="securitySettings.passwordMinLength" />
+                          <span class="unit">chars</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Character requirements</span>
+                          <span class="label-help">At least one of each enabled class.</span>
+                        </div>
+                        <div class="setting-control checks">
+                          <nb-checkbox [(checked)]="securitySettings.passwordRequireLowercase">Lowercase (a-z)</nb-checkbox>
+                          <nb-checkbox [(checked)]="securitySettings.passwordRequireUppercase">Uppercase (A-Z)</nb-checkbox>
+                          <nb-checkbox [(checked)]="securitySettings.passwordRequireNumber">Number (0-9)</nb-checkbox>
+                          <nb-checkbox [(checked)]="securitySettings.passwordRequireSymbol">Symbol (!@#)</nb-checkbox>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Expire after</span>
+                          <span class="label-help">0 disables forced rotation.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="0" max="730" [(ngModel)]="securitySettings.passwordExpiryDays" />
+                          <span class="unit">days</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Password history</span>
+                          <span class="label-help">Prevent reuse of last N passwords.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="0" max="24" [(ngModel)]="securitySettings.passwordHistoryCount" />
+                          <span class="unit">prior</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="alert-triangle-outline"></nb-icon>
+                      <h6>Account lockout</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Failed-attempt threshold</span>
+                          <span class="label-help">Lock account after this many consecutive failures.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="20" [(ngModel)]="securitySettings.failedAttemptThreshold" />
+                          <span class="unit">attempts</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Lockout duration</span>
+                          <span class="label-help">Auto-unlock after this many minutes (0 = manual unlock).</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="0" max="1440" [(ngModel)]="securitySettings.lockoutDurationMinutes" />
+                          <span class="unit">min</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="globe-outline"></nb-icon>
+                      <h6>Network access</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row stacked">
+                        <div class="setting-label">
+                          <span class="label-title">IP allowlist</span>
+                          <span class="label-help">One CIDR or IP per line. Empty allows all.</span>
+                        </div>
+                        <div class="setting-control">
+                          <textarea
+                            nbInput
+                            fullWidth
+                            fieldSize="small"
+                            rows="4"
+                            placeholder="10.0.0.0/24&#10;192.168.1.50&#10;203.0.113.0/29"
+                            [(ngModel)]="securitySettings.ipAllowlist"></textarea>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">API rate limit</span>
+                          <span class="label-help">Requests per minute per token.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="60" max="10000" step="60" [(ngModel)]="securitySettings.rateLimitPerMinute" />
+                          <span class="unit">req/min</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="file-text-outline"></nb-icon>
+                      <h6>Compliance</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Minimum TLS version</span>
+                          <span class="label-help">Reject connections below this version.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="securitySettings.tlsMinimumVersion">
+                            <nb-option value="1.2">TLS 1.2</nb-option>
+                            <nb-option value="1.3">TLS 1.3</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Encryption at rest</span>
+                          <span class="label-help">Encrypt customer data in stored volumes.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-toggle [(checked)]="securitySettings.encryptionAtRest"></nb-toggle>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Audit log retention</span>
+                          <span class="label-help">Days to keep audit records before archival.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="30" max="3650" [(ngModel)]="securitySettings.auditRetentionDays" />
+                          <span class="unit">days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div class="account-tab config-tab" *ngIf="activeTab === 'config'">
+                <header class="account-toolbar">
+                  <div class="account-title">
+                    <h6>System Configuration</h6>
+                    <span class="account-count" *ngIf="systemConfigDirty">unsaved changes</span>
+                    <span class="account-count saved-flash" *ngIf="systemConfigSaved">
+                      <nb-icon icon="checkmark-circle-2-outline"></nb-icon>
+                      Saved
+                    </span>
+                  </div>
+                  <div class="account-actions">
+                    <button nbButton ghost size="small" (click)="restoreSystemConfigDefaults()">
+                      <nb-icon icon="refresh-outline"></nb-icon>
+                      Restore defaults
+                    </button>
+                    <button nbButton ghost size="small" [disabled]="!systemConfigDirty" (click)="resetSystemConfig()">
+                      Discard
+                    </button>
+                    <button nbButton status="primary" size="small" [disabled]="!systemConfigDirty || systemConfigSaving" (click)="saveSystemConfig()">
+                      <nb-icon icon="save-outline"></nb-icon>
+                      {{ systemConfigSaving ? 'Saving…' : 'Save changes' }}
+                    </button>
+                  </div>
+                </header>
+
+                <div *ngIf="systemConfigError" class="warning-banner">
+                  <nb-icon icon="alert-triangle-outline"></nb-icon>
+                  <span>{{ systemConfigError }}</span>
+                </div>
+
+                <div class="info-banner" role="note">
+                  <nb-icon icon="info-outline"></nb-icon>
+                  <div>
+                    Operational settings for the Nexus tenant. Authentication and access policies are configured
+                    separately under <strong>Security</strong>.
+                  </div>
+                </div>
+
+                <div class="settings-grid">
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="settings-2-outline"></nb-icon>
+                      <h6>General</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Application name</span>
+                          <span class="label-help">Shown in the header and browser title.</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="systemConfig.appNameOverride" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Default theme</span>
+                          <span class="label-help">Applied to new users and to your current session on save.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="systemConfig.defaultTheme">
+                            <nb-option *ngFor="let t of themeOptions" [value]="t.value">{{ t.label }}</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Default locale</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="systemConfig.defaultLocale">
+                            <nb-option *ngFor="let l of localeOptions" [value]="l">{{ l }}</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Default timezone</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="systemConfig.defaultTimezone">
+                            <nb-option *ngFor="let z of timezoneOptions" [value]="z">{{ z }}</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Date format</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" [(selected)]="systemConfig.dateFormat">
+                            <nb-option *ngFor="let f of dateFormatOptions" [value]="f">{{ f }}</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">First day of week</span>
+                          <span class="label-help">Reserved — no feature consumes this yet.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-select size="small" disabled [(selected)]="systemConfig.firstDayOfWeek">
+                            <nb-option value="sunday">Sunday</nb-option>
+                            <nb-option value="monday">Monday</nb-option>
+                          </nb-select>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="hard-drive-outline"></nb-icon>
+                      <h6>Data Sources</h6>
+                      <span class="strength-pill" data-strength="moderate">{{ dataSources.length }} connected</span>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row stacked">
+                        <div class="setting-label">
+                          <span class="label-title">Connected sources</span>
+                          <span class="label-help">Read-only summary; manage connections in Sources &rarr; Connections.</span>
+                        </div>
+                        <div class="setting-control">
+                          <div class="datasource-list">
+                            <div class="datasource-row" *ngFor="let ds of dataSources">
+                              <div class="ds-meta">
+                                <span class="ds-name">{{ ds.name }}</span>
+                                <span class="ds-type">{{ ds.type }}</span>
+                              </div>
+                              <span class="state-pill" [attr.data-state]="dataSourceStatusPillState(ds.status)">
+                                <span class="state-dot"></span>
+                                {{ dataSourceStatusLabel(ds.status) }}
+                              </span>
+                              <span class="ds-sync">{{ ds.lastSync }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Default refresh interval</span>
+                          <span class="label-help">Polling cadence for connectors that don't push.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="30" max="86400" step="30" [(ngModel)]="systemConfig.defaultRefreshSeconds" />
+                          <span class="unit">sec</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Default retry attempts</span>
+                          <span class="label-help">On transient failure before marking degraded.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="0" max="10" [(ngModel)]="systemConfig.defaultRetryAttempts" />
+                          <span class="unit">tries</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Backoff multiplier</span>
+                          <span class="label-help">Exponential delay between retries.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="10" step="1" [(ngModel)]="systemConfig.retryBackoffMultiplier" />
+                          <span class="unit">×</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Max concurrent connectors</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="64" [(ngModel)]="systemConfig.maxConcurrentConnectors" />
+                          <span class="unit">conns</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="email-outline"></nb-icon>
+                      <h6>Notifications &amp; Email</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">SMTP host</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="text" [(ngModel)]="systemConfig.smtpHost" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">SMTP port</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="65535" [(ngModel)]="systemConfig.smtpPort" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Require SMTP auth</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-toggle [(checked)]="systemConfig.smtpRequireAuth"></nb-toggle>
+                        </div>
+                      </div>
+
+                      <div class="setting-row" *ngIf="systemConfig.smtpRequireAuth">
+                        <div class="setting-label">
+                          <span class="label-title">SMTP username</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="text" autocomplete="off" [(ngModel)]="systemConfig.smtpUsername" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">From address</span>
+                          <span class="label-help">Appears as the sender on all system emails.</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="email" [(ngModel)]="systemConfig.smtpFromAddress" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row stacked">
+                        <div class="setting-label">
+                          <span class="label-title">Trigger emails on</span>
+                        </div>
+                        <div class="setting-control checks vertical">
+                          <nb-checkbox *ngFor="let evt of systemConfig.notificationEvents" [(checked)]="evt.enabled">
+                            {{ evt.label }}
+                          </nb-checkbox>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Slack webhook URL</span>
+                          <span class="label-help">Optional. Posts a copy of email alerts to Slack.</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="url" placeholder="https://hooks.slack.com/services/..." [(ngModel)]="systemConfig.slackWebhookUrl" />
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Microsoft Teams webhook URL</span>
+                        </div>
+                        <div class="setting-control">
+                          <input nbInput fullWidth fieldSize="small" type="url" placeholder="https://outlook.office.com/webhook/..." [(ngModel)]="systemConfig.teamsWebhookUrl" />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="activity-outline"></nb-icon>
+                      <h6>Performance &amp; Limits</h6>
+                    </header>
+                    <div class="settings-body">
+                      <div class="info-banner" role="note">
+                        <nb-icon icon="info-outline"></nb-icon>
+                        <div>
+                          <strong>Reserved.</strong> Values persist and are audit-logged, but no
+                          subsystem reads them yet. Wired in a later phase when caching, file
+                          ingestion, and the job queue land.
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Cache TTL</span>
+                          <span class="label-help">Server-side cache lifetime for read endpoints.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="0" max="86400" step="30" [(ngModel)]="systemConfig.cacheTtlSeconds" />
+                          <span class="unit">sec</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Query timeout</span>
+                          <span class="label-help">Cancel queries that run longer than this.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="600" [(ngModel)]="systemConfig.queryTimeoutSeconds" />
+                          <span class="unit">sec</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Max upload size</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="10240" [(ngModel)]="systemConfig.maxUploadMb" />
+                          <span class="unit">MB</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Max concurrent jobs</span>
+                          <span class="label-help">Background jobs running in parallel.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="256" [(ngModel)]="systemConfig.maxConcurrentJobs" />
+                          <span class="unit">jobs</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Worker pool size</span>
+                          <span class="label-help">Threads per worker process.</span>
+                        </div>
+                        <div class="setting-control narrow">
+                          <input nbInput fieldSize="small" type="number" min="1" max="64" [(ngModel)]="systemConfig.workerPoolSize" />
+                          <span class="unit">threads</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="settings-card">
+                    <header>
+                      <nb-icon icon="award-outline"></nb-icon>
+                      <h6>Licensing</h6>
+                      <span class="strength-pill" [attr.data-strength]="systemConfig.plan === 'enterprise' ? 'strong' : (systemConfig.plan === 'professional' ? 'moderate' : 'weak')">{{ systemConfig.plan }}</span>
+                    </header>
+                    <div class="settings-body">
+                      <div class="info-banner" role="note">
+                        <nb-icon icon="info-outline"></nb-icon>
+                        <div>
+                          Read-only. License is applied at install time; rotation and seat
+                          changes are handled out-of-band (CLI / account portal in a future phase).
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">License key</span>
+                          <span class="label-help">Last segment shown.</span>
+                        </div>
+                        <div class="setting-control">
+                          <code class="license-key">{{ maskedLicenseKey() }}</code>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Plan</span>
+                        </div>
+                        <div class="setting-control">
+                          <span class="role-pill">{{ planLabel(systemConfig.plan) }}</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row stacked">
+                        <div class="setting-label">
+                          <span class="label-title">Seat usage</span>
+                          <span class="label-help">{{ apiUsers.length }} of {{ systemConfig.seatsTotal }} seats in use.</span>
+                        </div>
+                        <div class="setting-control">
+                          <nb-progress-bar [value]="seatsPercent" [status]="seatsStatus" size="tiny"></nb-progress-bar>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Expires</span>
+                        </div>
+                        <div class="setting-control">
+                          <span class="readonly-value">{{ licenseExpiresDisplay() }}</span>
+                        </div>
+                      </div>
+
+                      <div class="setting-row">
+                        <div class="setting-label">
+                          <span class="label-title">Need more seats?</span>
+                        </div>
+                        <div class="setting-control">
+                          <button nbButton ghost size="small">
+                            <nb-icon icon="external-link-outline"></nb-icon>
+                            Contact sales
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div class="account-tab audit-tab" *ngIf="activeTab === 'audit'">
+                <header class="account-toolbar">
+                  <div class="account-title">
+                    <h6>Audit Log</h6>
+                  </div>
+                  <div class="account-actions">
+                    <button nbButton ghost size="small">
+                      <nb-icon icon="download-outline"></nb-icon>
+                      Export
+                    </button>
+                  </div>
+                </header>
+
+                <p class="account-intro">
+                  Every administrative action is recorded below. Filter by category or search across actor,
+                  resource, action, and source to narrow the view.
+                </p>
+
+                <div class="users-table audit-table">
+                  <div class="users-controls">
+                    <div class="users-controls-left">
+                      <span class="control-label">Display</span>
+                      <nb-select
+                        size="small"
+                        [(selected)]="auditPageSize"
+                        (selectedChange)="onAuditPageSizeChange()">
+                        <nb-option *ngFor="let n of auditPageSizeOptions" [value]="n">{{ n }}</nb-option>
+                      </nb-select>
+                      <span class="control-label">Events</span>
+                      <span class="control-divider">·</span>
+                      <span class="control-label">Category</span>
+                      <nb-select
+                        size="small"
+                        [(selected)]="auditCategory"
+                        (selectedChange)="onAuditCategoryChange()"
+                        class="audit-category-select">
+                        <nb-option value="all">All</nb-option>
+                        <nb-option value="AUTH">Authentication</nb-option>
+                        <nb-option value="USER">User</nb-option>
+                        <nb-option value="CONFIG">Configuration</nb-option>
+                        <nb-option value="DATA">Data</nb-option>
+                        <nb-option value="SECURITY">Security</nb-option>
+                      </nb-select>
+                    </div>
+                    <div class="users-controls-search">
+                      <nb-icon icon="search-outline"></nb-icon>
+                      <input
+                        nbInput
+                        fieldSize="small"
+                        type="text"
+                        placeholder="Search all fields"
+                        [(ngModel)]="auditSearch"
+                        (ngModelChange)="onAuditSearchChange()" />
+                    </div>
+                  </div>
+
+                  <div class="users-row users-head" role="row">
+                    <span class="col-time">Timestamp</span>
+                    <span class="col-actor">Actor</span>
+                    <span class="col-action">Action</span>
+                    <span class="col-resource">Resource</span>
+                    <span class="col-source">Source</span>
+                    <span class="col-outcome">Outcome</span>
+                  </div>
+                  <div
+                    *ngFor="let entry of paginatedAudit"
+                    class="users-row"
+                    role="row">
+                    <div class="col-time">
+                      <span class="login-time">{{ entry.timestamp }}</span>
+                    </div>
+                    <div class="col-actor">
+                      <span
+                        class="avatar"
+                        [style.background]="'hsl(' + avatarHue(entry.actor) + ', 60%, 92%)'"
+                        [style.color]="'hsl(' + avatarHue(entry.actor) + ', 55%, 35%)'">
+                        {{ initials(entry.actor) }}
+                      </span>
+                      <div class="user-meta">
+                        <div class="user-name">{{ entry.actor }}</div>
+                        <div class="user-email">{{ entry.actorEmail }}</div>
+                      </div>
+                    </div>
+                    <div class="col-action">
+                      <span class="action-chip" [attr.data-action]="entry.action">
+                        <nb-icon [icon]="actionIcon(entry.action)"></nb-icon>
+                        {{ entry.action }}
+                      </span>
+                      <span class="category-tag">{{ entry.category }}</span>
+                    </div>
+                    <div class="col-resource">
+                      <div class="resource-name">{{ entry.resource }}</div>
+                      <div class="resource-type">{{ entry.resourceType }}</div>
+                    </div>
+                    <div class="col-source">
+                      <span class="login-time">{{ entry.source }}</span>
+                    </div>
+                    <div class="col-outcome">
+                      <span class="state-pill" [attr.data-state]="entry.outcome === 'success' ? 'active' : entry.outcome === 'failed' ? 'suspended' : 'invited'">
+                        <span class="state-dot"></span>
+                        {{ stateLabel(entry.outcome) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div *ngIf="!auditLoading && auditTotal === 0" class="users-empty">
+                    <nb-icon icon="file-text-outline"></nb-icon>
+                    <span *ngIf="auditSearch || auditCategory !== 'all'">No audit events match the current filter</span>
+                    <span *ngIf="!auditSearch && auditCategory === 'all'">No audit events recorded yet — actions will appear here as users sign in and admins make changes.</span>
+                  </div>
+
+                  <div *ngIf="auditLoading && auditTotal === 0" class="users-empty">
+                    <nb-icon icon="loader-outline"></nb-icon>
+                    <span>Loading audit log&hellip;</span>
+                  </div>
+
+                  <div *ngIf="auditError" class="warning-banner">
+                    <nb-icon icon="alert-triangle-outline"></nb-icon>
+                    <span>{{ auditError }}</span>
+                  </div>
+
+                  <div class="users-footer">
+                    <div class="users-controls-pager">
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="auditCurrentPage <= 1"
+                        (click)="prevAuditPage()"
+                        aria-label="Previous page">
+                        <nb-icon icon="chevron-left-outline"></nb-icon>
+                      </button>
+                      <button
+                        *ngFor="let p of auditPageNumbers"
+                        nbButton ghost size="tiny"
+                        class="page-num"
+                        [class.active]="p === auditCurrentPage"
+                        (click)="setAuditPage(p)">
+                        {{ p }}
+                      </button>
+                      <button
+                        nbButton ghost size="tiny"
+                        [disabled]="auditCurrentPage >= auditTotalPages"
+                        (click)="nextAuditPage()"
+                        aria-label="Next page">
+                        <nb-icon icon="chevron-right-outline"></nb-icon>
+                      </button>
+                    </div>
+                    <span class="users-footer-count" *ngIf="auditTotal > 0">
+                      Events {{ auditPageStart }}–{{ auditPageEnd }} of {{ auditTotal }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+  </div>
+</div>

@@ -1,0 +1,75 @@
+@import '../@theme/styles/themes';
+
+@include nb-install-component() {
+  ::ng-deep router-outlet + * {
+    display: block;
+    animation: fade 1s;
+
+    @keyframes fade {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+  }
+
+  .sidebar-content {
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      // Cancel the .scrollable wrapper's 1.25rem padding so the toggle hugs the
+      // left edge of the sidebar in both expanded and compacted states.
+      margin: 0 -1.25rem 0.125rem;
+      padding: 0.5rem 0.75rem;
+      text-decoration: none;
+      color: nb-theme(text-primary-color);
+      min-height: 2.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      position: relative;
+
+      nb-icon {
+        font-size: 1.25rem !important;
+        color: nb-theme(text-primary-color) !important;
+        display: block !important;
+        width: 1.25rem;
+        height: 1.25rem;
+        line-height: 1;
+        z-index: 2;
+        flex-shrink: 0;
+
+        :host-context(.nb-theme-default) & {
+          color: #2c3e50 !important;
+        }
+
+        :host-context(.nb-theme-dark) & {
+          color: #ffffff !important;
+        }
+
+        :host-context(.nb-theme-cosmic) & {
+          color: #ffffff !important;
+        }
+
+        &:empty {
+          display: none !important;
+        }
+      }
+
+      &:hover {
+        color: nb-theme(text-primary-color);
+
+        nb-icon {
+          opacity: 0.8;
+        }
+      }
+
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+}
