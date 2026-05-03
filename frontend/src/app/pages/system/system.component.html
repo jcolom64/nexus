@@ -1389,7 +1389,7 @@
                         <div class="setting-label">
                           <span class="label-title">Seat usage</span>
                           <span class="label-help">
-                            {{ apiUsers.length }} of {{ license?.seatsTotal ?? '—' }} seats in use.
+                            {{ apiUsers.length }} of {{ license ? license.seatsTotal : '—' }} seats in use.
                           </span>
                         </div>
                         <div class="setting-control">
